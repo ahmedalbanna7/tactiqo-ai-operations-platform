@@ -1,0 +1,54 @@
+{
+  "schema_version": 2,
+  "verified_at": "2026-07-21",
+  "policy": "Exact release tags and commits are recorded. Source checkouts are ignored by the platform repository and are never imported directly by business modules.",
+  "repositories": [
+    {
+      "name": "onyx",
+      "repository": "onyx-dot-app/onyx",
+      "url": "https://github.com/onyx-dot-app/onyx.git",
+      "release": "v4.3.9",
+      "commit": "1da679cefc96165c6b9b64c3bc769584b88f88c2",
+      "destination": "vendor/upstream/onyx",
+      "verification_path": "deployment/docker_compose/docker-compose.yml",
+      "runtime_phase": "Phase 3",
+      "integration_boundary": "KnowledgeSearchPort"
+    },
+    {
+      "name": "unstructured",
+      "repository": "Unstructured-IO/unstructured",
+      "url": "https://github.com/Unstructured-IO/unstructured.git",
+      "release": "0.24.1",
+      "commit": "cda16b3f2170019be9c6ea5635946fb3eaa2d66f",
+      "destination": "vendor/upstream/unstructured",
+      "verification_path": "pyproject.toml",
+      "sparse_paths": [
+        "unstructured"
+      ],
+      "runtime_phase": "Phase 3",
+      "integration_boundary": "DocumentParser"
+    },
+    {
+      "name": "langgraph",
+      "repository": "langchain-ai/langgraph",
+      "url": "https://github.com/langchain-ai/langgraph.git",
+      "release": "1.2.9",
+      "commit": "95af6a00718588e7b7ce17310e8006d267896a77",
+      "destination": "vendor/upstream/langgraph",
+      "verification_path": "libs/langgraph/pyproject.toml",
+      "runtime_phase": "Phase 4",
+      "integration_boundary": "Approved typed agent runtime"
+    },
+    {
+      "name": "langchain",
+      "repository": "langchain-ai/langchain",
+      "url": "https://github.com/langchain-ai/langchain.git",
+      "release": "langchain-core==1.4.9",
+      "commit": "1c3a4186cf2ba4f28face59118ac7786de009f91",
+      "destination": "vendor/upstream/langchain",
+      "verification_path": "libs/core/pyproject.toml",
+      "runtime_phase": "Phase 4",
+      "integration_boundary": "Approved provider/tool abstractions"
+    }
+  ]
+}

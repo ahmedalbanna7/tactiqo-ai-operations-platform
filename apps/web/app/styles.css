@@ -1,0 +1,89 @@
+:root {
+  color-scheme: dark;
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  background: #07111d;
+  color: #e9f2ff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 20% 15%, rgb(30 113 122 / 35%), transparent 38rem),
+    linear-gradient(145deg, #07111d 0%, #0b1725 58%, #101d2d 100%);
+}
+
+main {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 3rem 1.25rem;
+}
+
+.hero {
+  width: min(54rem, 100%);
+  padding: clamp(2rem, 6vw, 4.5rem);
+  border: 1px solid rgb(148 197 213 / 22%);
+  border-radius: 1.5rem;
+  background: rgb(9 24 39 / 78%);
+  box-shadow: 0 2rem 8rem rgb(0 0 0 / 32%);
+  backdrop-filter: blur(20px);
+}
+
+.eyebrow {
+  margin: 0 0 1rem;
+  color: #67d6c3;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+h1 {
+  margin: 0;
+  max-width: 13ch;
+  font-size: clamp(2.5rem, 8vw, 5rem);
+  line-height: 0.96;
+  letter-spacing: -0.05em;
+}
+
+.summary {
+  max-width: 45rem;
+  margin: 1.75rem 0;
+  color: #b8c8d8;
+  font-size: 1.08rem;
+  line-height: 1.7;
+}
+
+ul {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+li {
+  padding: 0.9rem 1rem;
+  border-left: 3px solid #2cae9b;
+  background: rgb(255 255 255 / 4%);
+  color: #d8e7f4;
+}
+
+.status {
+  display: inline-flex;
+  margin-top: 2rem;
+  padding: 0.55rem 0.85rem;
+  border: 1px solid rgb(103 214 195 / 28%);
+  border-radius: 999px;
+  background: rgb(44 174 155 / 10%);
+  color: #8ce2d4;
+  font-size: 0.82rem;
+  font-weight: 700;
+}

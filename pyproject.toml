@@ -1,0 +1,88 @@
+[build-system]
+requires = ["hatchling==1.27.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "tactiqo-platform"
+version = "0.1.0"
+description = "Secure, governed AI operations, delivery, and quality platform."
+readme = "README.md"
+requires-python = ">=3.12,<3.15"
+license = { text = "Proprietary" }
+authors = [{ name = "Tactiqo Engineering" }]
+dependencies = [
+  "anyio==4.14.1",
+  "fastapi==0.138.0",
+  "httpx==0.28.1",
+  "pydantic==2.13.4",
+  "pydantic-settings==2.14.2",
+  "typing-extensions==4.15.0",
+  "uvicorn==0.49.0",
+]
+
+[project.optional-dependencies]
+infrastructure = [
+  "aio-pika==10.0.1",
+  "asyncpg==0.30.0",
+  "redis==8.0.1",
+  "sqlalchemy[asyncio]==2.0.51",
+]
+
+[dependency-groups]
+quality = [
+  "mypy==1.17.1",
+  "ruff==0.12.5",
+]
+test = [
+  "pytest==9.1.1",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = [
+  "backend/src/tactiqo",
+  "apps/api/src/tactiqo_api",
+]
+
+[tool.pytest.ini_options]
+addopts = "--strict-config --strict-markers -p no:cacheprovider"
+testpaths = ["backend/tests", "apps/api/tests"]
+pythonpath = ["backend/src", "apps/api/src"]
+
+[tool.coverage.run]
+branch = true
+source = ["tactiqo", "tactiqo_api"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unused_configs = true
+mypy_path = ["backend/src", "apps/api/src"]
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = ["aio_pika.*", "asyncpg.*"]
+ignore_missing_imports = true
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["backend/src", "apps/api/src", "backend/tests", "apps/api/tests"]
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+  "COM812",
+  "D203",
+  "D213",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"**/tests/**/*.py" = ["S101"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
