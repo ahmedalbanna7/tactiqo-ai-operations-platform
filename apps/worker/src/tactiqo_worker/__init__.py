@@ -1,0 +1,1 @@
+"""Tactiqo asynchronous ingestion worker."""

@@ -73,6 +73,32 @@ services:
     restart: unless-stopped
     networks: [core]
 
+  mcp-demo:
+    build:
+      context: .
+      dockerfile: apps/mcp_demo/Dockerfile
+    expose: ["8100"]
+    restart: unless-stopped
+    networks: [core]
+
+  migrate:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      TACTIQO_ENVIRONMENT: ${TACTIQO_ENVIRONMENT:-local}
+      TACTIQO_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-tactiqo_app}:${POSTGRES_PASSWORD:-change-me}@postgres:5432/${POSTGRES_DB:-tactiqo}
+      TACTIQO_REDIS_URL: redis://redis:6379/0
+      TACTIQO_RABBITMQ_URL: amqp://${RABBITMQ_DEFAULT_USER:-tactiqo_app}:${RABBITMQ_DEFAULT_PASS:-change-me}@rabbitmq:5672/
+      TACTIQO_MINIO_ENDPOINT: http://minio:9000
+      TACTIQO_MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-change-me}
+      TACTIQO_MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-change-me}
+    depends_on:
+      postgres: { condition: service_healthy }
+    restart: "no"
+    networks: [core]
+
   api:
     build:
       context: .
@@ -87,16 +113,24 @@ services:
       TACTIQO_MINIO_ENDPOINT: http://minio:9000
       TACTIQO_MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-change-me}
       TACTIQO_MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-change-me}
+      TACTIQO_MINIO_BUCKET: ${TACTIQO_MINIO_BUCKET:-tactiqo-knowledge}
+      TACTIQO_MODEL_PROVIDER: ${TACTIQO_MODEL_PROVIDER:-deterministic}
+      TACTIQO_OPENAI_API_KEY: ${TACTIQO_OPENAI_API_KEY:-}
+      TACTIQO_OPENAI_MODEL: ${TACTIQO_OPENAI_MODEL:-gpt-5.6-sol}
+      TACTIQO_OPENAI_REASONING_EFFORT: ${TACTIQO_OPENAI_REASONING_EFFORT:-low}
+      TACTIQO_MCP_ENABLED: ${TACTIQO_MCP_ENABLED:-true}
+      TACTIQO_MCP_DEMO_URL: http://mcp-demo:8100/mcp
       TACTIQO_KNOWLEDGE_SEARCH_ENABLED: ${TACTIQO_KNOWLEDGE_SEARCH_ENABLED:-false}
       TACTIQO_ONYX_BASE_URL: ${TACTIQO_ONYX_BASE_URL:-http://localhost:8080}
       TACTIQO_ONYX_SERVICE_TOKEN: ${TACTIQO_ONYX_SERVICE_TOKEN:-}
     ports:
       - "127.0.0.1:${TACTIQO_API_HOST_PORT:-18000}:8000"
     depends_on:
-      postgres: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
       redis: { condition: service_healthy }
       rabbitmq: { condition: service_healthy }
       minio: { condition: service_healthy }
+      mcp-demo: { condition: service_started }
     healthcheck:
       test:
         [
@@ -109,6 +143,29 @@ services:
       timeout: 5s
       retries: 10
       start_period: 10s
+    restart: unless-stopped
+    networks: [core]
+
+  worker:
+    build:
+      context: .
+      dockerfile: apps/worker/Dockerfile
+    environment:
+      TACTIQO_ENVIRONMENT: ${TACTIQO_ENVIRONMENT:-local}
+      TACTIQO_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-tactiqo_app}:${POSTGRES_PASSWORD:-change-me}@postgres:5432/${POSTGRES_DB:-tactiqo}
+      TACTIQO_REDIS_URL: redis://redis:6379/0
+      TACTIQO_RABBITMQ_URL: amqp://${RABBITMQ_DEFAULT_USER:-tactiqo_app}:${RABBITMQ_DEFAULT_PASS:-change-me}@rabbitmq:5672/
+      TACTIQO_MINIO_ENDPOINT: http://minio:9000
+      TACTIQO_MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-change-me}
+      TACTIQO_MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-change-me}
+      TACTIQO_MINIO_BUCKET: ${TACTIQO_MINIO_BUCKET:-tactiqo-knowledge}
+      TACTIQO_KNOWLEDGE_SEARCH_ENABLED: ${TACTIQO_KNOWLEDGE_SEARCH_ENABLED:-false}
+      TACTIQO_ONYX_BASE_URL: ${TACTIQO_ONYX_BASE_URL:-http://localhost:8080}
+      TACTIQO_ONYX_SERVICE_TOKEN: ${TACTIQO_ONYX_SERVICE_TOKEN:-}
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      rabbitmq: { condition: service_healthy }
+      minio: { condition: service_healthy }
     restart: unless-stopped
     networks: [core]
 

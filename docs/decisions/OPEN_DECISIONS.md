@@ -15,6 +15,7 @@ Only an explicit human decision can move an item to `APPROVED`.
 | DEC-006 | Confirm MVP identity provider and local authentication strategy | OPEN | authentication implementation |
 | DEC-007 | Confirm initial customer capacity envelope and connection budget | OPEN | performance and pool configuration |
 | DEC-008 | Confirm initial RPO/RTO and backup/restore targets | OPEN | production-ready data design |
+| DEC-009 | Reorder delivery to build the F1 Agentic Knowledge Core before the complete identity UX | APPROVED | F1 implementation |
 
 ## Product discovery decisions
 

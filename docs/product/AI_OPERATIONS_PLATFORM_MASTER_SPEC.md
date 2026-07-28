@@ -2150,6 +2150,28 @@ Prove that a dedicated enterprise customer can configure its organization tree, 
 - Project operations analysis
 - Trust indicators and guardrails
 
+### Phase 4.1 — Review, fallback, guardrails, and documentation assurance
+
+- Response Review Agent for groundedness, completeness, citations, and safe
+  uncertainty before a material answer is delivered.
+- Retrieval Safety Reviewer for prompt-injection signals, source conflicts,
+  freshness, provenance, and ACL revalidation.
+- Tool Safety Reviewer for schema validation, least-privilege tool selection,
+  side-effect classification, approval enforcement, and result verification.
+- Fallback and Recovery Agent for provider degradation, bounded retry,
+  checkpoint resume, alternative approved adapters, and explicit safe failure.
+- Documentation Agent for run summaries, architecture/API/runbook updates,
+  citation manifests, and change evidence. It may draft documentation but cannot
+  approve policy or architecture changes.
+- Offline Red-Team and Evaluation Agent for regression cases, adversarial tool
+  inputs, prompt injection, data leakage, and fallback-path tests.
+- Deterministic guardrail and policy engines remain the enforcement authority;
+  reviewer agents advise, classify, and produce evidence but cannot override a
+  deny, approval requirement, or validation failure.
+- Layered controls run at input, retrieval, planning, pre-tool, post-tool,
+  output, persistence, and audit boundaries, with independent fail-closed
+  behavior and redacted observability.
+
 ### Phase 5 — Cross-source and industry intelligence
 
 - Pilot communication, document, email/calendar, and industry-source connectors

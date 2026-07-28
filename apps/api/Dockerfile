@@ -13,11 +13,19 @@ RUN groupadd --system tactiqo \
     && useradd --system --gid tactiqo --create-home tactiqo
 
 COPY pyproject.toml uv.lock README.md ./
-COPY backend/src ./backend/src
-COPY apps/api/src ./apps/api/src
 
 RUN python -m pip install --no-cache-dir uv==0.11.24 \
     && uv sync --frozen --no-group quality --no-group test \
+        --extra infrastructure --no-install-project
+
+COPY alembic.ini ./
+COPY migrations ./migrations
+COPY backend/src ./backend/src
+COPY apps/api/src ./apps/api/src
+COPY apps/worker/src ./apps/worker/src
+COPY apps/mcp_demo/src ./apps/mcp_demo/src
+
+RUN uv sync --frozen --no-group quality --no-group test \
         --extra infrastructure --no-editable \
     && /usr/local/bin/python -m pip uninstall --yes uv
 

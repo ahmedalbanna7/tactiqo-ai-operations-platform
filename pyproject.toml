@@ -11,11 +11,21 @@ requires-python = ">=3.12,<3.15"
 license = { text = "Proprietary" }
 authors = [{ name = "Tactiqo Engineering" }]
 dependencies = [
+  "alembic==1.18.5",
   "anyio==4.14.1",
   "fastapi==0.138.0",
   "httpx==0.28.1",
+  "jsonschema==4.26.0",
+  "langchain-core==1.4.9",
+  "langgraph==1.2.9",
+  "langgraph-checkpoint-postgres==3.1.0",
+  "mcp==1.28.1",
+  "minio==7.2.20",
+  "openai==2.46.0",
+  "psycopg[binary,pool]==3.3.4",
   "pydantic==2.13.4",
   "pydantic-settings==2.14.2",
+  "python-multipart==0.0.32",
   "typing-extensions==4.15.0",
   "uvicorn==0.49.0",
 ]
@@ -27,11 +37,19 @@ infrastructure = [
   "redis==8.0.1",
   "sqlalchemy[asyncio]==2.0.51",
 ]
+documents = [
+  "openpyxl==3.1.5",
+  "pypdf==6.14.2",
+  "python-docx==1.2.0",
+  "unstructured==0.24.1",
+]
 
 [dependency-groups]
 quality = [
   "mypy==1.17.1",
   "ruff==0.12.5",
+  "types-jsonschema==4.26.0.20260518",
+  "types-openpyxl==3.1.5.20260518",
 ]
 test = [
   "pytest==9.1.1",
@@ -41,12 +59,14 @@ test = [
 packages = [
   "backend/src/tactiqo",
   "apps/api/src/tactiqo_api",
+  "apps/worker/src/tactiqo_worker",
+  "apps/mcp_demo/src/tactiqo_mcp_demo",
 ]
 
 [tool.pytest.ini_options]
 addopts = "--strict-config --strict-markers -p no:cacheprovider"
-testpaths = ["backend/tests", "apps/api/tests"]
-pythonpath = ["backend/src", "apps/api/src"]
+testpaths = ["backend/tests", "apps/api/tests", "apps/worker/tests", "apps/mcp_demo/tests"]
+pythonpath = ["backend/src", "apps/api/src", "apps/worker/src", "apps/mcp_demo/src"]
 
 [tool.coverage.run]
 branch = true
@@ -60,17 +80,24 @@ skip_covered = true
 python_version = "3.12"
 strict = true
 warn_unused_configs = true
-mypy_path = ["backend/src", "apps/api/src"]
+mypy_path = ["backend/src", "apps/api/src", "apps/worker/src", "apps/mcp_demo/src"]
 plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]
-module = ["aio_pika.*", "asyncpg.*"]
+module = ["aio_pika.*", "asyncpg.*", "minio.*", "unstructured.*"]
 ignore_missing_imports = true
 
 [tool.ruff]
 target-version = "py312"
 line-length = 100
-src = ["backend/src", "apps/api/src", "backend/tests", "apps/api/tests"]
+src = [
+  "backend/src",
+  "apps/api/src",
+  "apps/worker/src",
+  "apps/mcp_demo/src",
+  "backend/tests",
+  "apps/api/tests",
+]
 
 [tool.ruff.lint]
 select = ["ALL"]
@@ -82,6 +109,7 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "**/tests/**/*.py" = ["S101"]
+"migrations/**/*.py" = ["INP001"]
 
 [tool.ruff.format]
 quote-style = "double"

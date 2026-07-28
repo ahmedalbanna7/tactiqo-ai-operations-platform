@@ -3,6 +3,7 @@
 from collections.abc import Sequence
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from tactiqo.shared.application.health import ReadinessProbe, ReadinessService
 from tactiqo.shared.infrastructure.readiness import (
@@ -12,8 +13,9 @@ from tactiqo.shared.infrastructure.readiness import (
     RedisProbe,
 )
 from tactiqo.shared.infrastructure.settings import Settings
+from tactiqo_api.composition import build_lifespan
 from tactiqo_api.middleware import CorrelationIdMiddleware
-from tactiqo_api.routes import router
+from tactiqo_api.routes import api_router, router
 
 
 def build_default_probes(settings: Settings) -> tuple[ReadinessProbe, ...]:
@@ -63,6 +65,7 @@ def create_app(
         version=settings.app_version,
         docs_url="/docs" if settings.environment.value != "production" else None,
         redoc_url="/redoc" if settings.environment.value != "production" else None,
+        lifespan=build_lifespan(settings),
     )
     app.state.settings = settings
     app.state.readiness_service = ReadinessService(
@@ -70,5 +73,14 @@ def create_app(
         timeout_seconds=settings.readiness_timeout_seconds,
     )
     app.add_middleware(CorrelationIdMiddleware)
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=list(settings.allowed_origins),
+        allow_credentials=False,
+        allow_methods=["GET", "POST", "OPTIONS"],
+        allow_headers=["Content-Type", "X-Correlation-ID", "Last-Event-ID"],
+        expose_headers=["X-Correlation-ID"],
+    )
     app.include_router(router)
+    app.include_router(api_router)
     return app
