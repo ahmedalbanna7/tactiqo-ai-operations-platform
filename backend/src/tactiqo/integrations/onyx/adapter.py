@@ -4,6 +4,7 @@ from collections.abc import Sequence
 
 import httpx
 
+from tactiqo.knowledge.application.content_security import DocumentContentSecurityScanner
 from tactiqo.knowledge.application.ports import KnowledgeRepository
 from tactiqo.knowledge.domain.models import (
     CanonicalDocumentElement,
@@ -22,12 +23,14 @@ class OnyxAdapter:
         token: str,
         repository: KnowledgeRepository,
         timeout_seconds: float = 30,
+        content_security: DocumentContentSecurityScanner | None = None,
     ) -> None:
         """Configure supported Onyx endpoints and platform scope validation."""
         self._base_url = base_url.rstrip("/")
         self._token = token
         self._repository = repository
         self._timeout_seconds = timeout_seconds
+        self._content_security = content_security or DocumentContentSecurityScanner()
 
     async def index(
         self,
@@ -99,9 +102,19 @@ class OnyxAdapter:
                     citation_id=str(raw.get("citation_id") or f"onyx:{len(results) + 1}"),
                     document_id=document.id,
                     title=str(raw.get("title") or document.name),
-                    content=str(raw.get("content") or ""),
+                    content=self._content_security.wrap_as_evidence(
+                        str(raw.get("content") or "")
+                    ),
                     source_uri=document.source_uri,
-                    locator={"provider": "onyx", "citation_id": raw.get("citation_id")},
+                    locator={
+                        "provider": "onyx",
+                        "citation_id": raw.get("citation_id"),
+                        "security_signals": list(
+                            self._content_security.assess(
+                                str(raw.get("content") or "")
+                            ).signals
+                        ),
+                    },
                     freshness=document.updated_at,
                 )
             )

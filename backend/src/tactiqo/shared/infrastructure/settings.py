@@ -91,9 +91,10 @@ class Settings(BaseSettings):
     ingestion_max_retries: int = Field(default=3, ge=0, le=10)
 
     knowledge_search_enabled: bool = False
-    knowledge_local_fallback_enabled: bool = True
+    knowledge_local_fallback_enabled: bool = False
     onyx_base_url: str = "http://localhost:8080"
     onyx_service_token: SecretStr | None = None
+    onyx_embedding_model: str = "intfloat/multilingual-e5-base"
 
     @model_validator(mode="after")
     def require_onyx_token_when_search_is_enabled(self) -> "Settings":
@@ -129,6 +130,9 @@ class Settings(BaseSettings):
                 raise ValueError(message)
             if self.local_development_context_enabled:
                 message = "The local development execution context is forbidden in production."
+                raise ValueError(message)
+            if self.knowledge_local_fallback_enabled:
+                message = "Local lexical knowledge fallback is forbidden in production."
                 raise ValueError(message)
         return self
 
