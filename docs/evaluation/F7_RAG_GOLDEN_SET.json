@@ -1,0 +1,14 @@
+{
+  "version": "2026-09-14-v1",
+  "languages": ["ar", "en", "mixed"],
+  "cases": [
+    {"id": "ar-project-governance", "language": "ar", "query": "كيف يتم تطبيق صلاحيات المستندات؟", "expected_topics": ["ACL", "classification", "tenant"], "required_locator": true},
+    {"id": "en-embedding-space", "language": "en", "query": "How are embedding spaces isolated?", "expected_topics": ["embedding space", "organization", "model"], "required_locator": true},
+    {"id": "mixed-risk-plan", "language": "mixed", "query": "اعرض security risk mitigation plan للـRAG", "expected_topics": ["prompt injection", "ACL", "fallback"], "required_locator": true}
+  ],
+  "security_cases": [
+    "cross_tenant_hidden_existence", "revoked_user", "department_boundary",
+    "team_boundary", "project_boundary", "classification_boundary",
+    "direct_prompt_injection", "indirect_tool_injection", "stale_document_version"
+  ]
+}

@@ -6,6 +6,7 @@ from uuid import UUID
 
 from tactiqo.knowledge.domain.models import (
     CanonicalDocumentElement,
+    KnowledgeChunk,
     KnowledgeDocument,
     KnowledgeResult,
 )
@@ -24,6 +25,9 @@ class KnowledgeRepository(Protocol):
         checksum_sha256: str,
         context: ExecutionContext,
         project_id: str | None,
+        domain: str,
+        purpose: str,
+        owner_scope: str = "personal",
     ) -> KnowledgeDocument:
         """Create an uploaded document record."""
 
@@ -31,8 +35,14 @@ class KnowledgeRepository(Protocol):
         self,
         context: ExecutionContext,
         limit: int = 100,
+        owner_scope: str | None = None,
     ) -> list[KnowledgeDocument]:
         """List visible documents."""
+
+    async def promote_document(
+        self, document_id: UUID, context: ExecutionContext
+    ) -> KnowledgeDocument | None:
+        """Atomically broaden one owned document and its retrieval ACL."""
 
     async def get_document(
         self,
@@ -57,6 +67,7 @@ class KnowledgeRepository(Protocol):
         parser_name: str,
         parser_version: str,
         elements: Sequence[CanonicalDocumentElement],
+        context: ExecutionContext,
     ) -> None:
         """Atomically replace elements and mark the document ready."""
 
@@ -66,6 +77,11 @@ class KnowledgeRepository(Protocol):
     async def mark_index_degraded(self, document_id: UUID, error_code: str) -> None:
         """Record derived-index failure without invalidating canonical readiness."""
 
+    async def revoke_document(
+        self, document_id: UUID, context: ExecutionContext
+    ) -> KnowledgeDocument | None:
+        """Withdraw a document and purge every derived retrieval artifact."""
+
     async def local_search(
         self,
         query: str,
@@ -73,6 +89,41 @@ class KnowledgeRepository(Protocol):
         limit: int,
     ) -> list[KnowledgeResult]:
         """Run the explicit local lexical development fallback."""
+
+    async def chunks_for_index(
+        self, document_id: UUID, context: ExecutionContext
+    ) -> list[KnowledgeChunk]:
+        """Return authorized chunks from the current immutable version."""
+
+    async def upsert_embeddings(  # noqa: PLR0913
+        self,
+        chunk_ids: Sequence[UUID],
+        vectors: Sequence[Sequence[float]],
+        space_key: str,
+        model: str,
+        dimensions: int,
+        context: ExecutionContext,
+    ) -> None:
+        """Persist vectors in one immutable embedding space."""
+
+    async def hybrid_search(
+        self,
+        query: str,
+        query_vector: Sequence[float],
+        space_key: str,
+        context: ExecutionContext,
+        limit: int,
+    ) -> list[KnowledgeResult]:
+        """Fuse ACL-filtered lexical and vector rankings."""
+
+    async def preview(
+        self,
+        document_id: UUID,
+        chunk_ordinal: int,
+        radius: int,
+        context: ExecutionContext,
+    ) -> list[KnowledgeResult]:
+        """Return a bounded, reauthorized window around one cited chunk."""
 
 
 class ObjectStorage(Protocol):
@@ -105,6 +156,7 @@ class KnowledgeIndexer(Protocol):
         self,
         document: KnowledgeDocument,
         elements: Sequence[CanonicalDocumentElement],
+        context: ExecutionContext,
     ) -> None:
         """Upsert one document in the derived index."""
 
@@ -120,9 +172,16 @@ class KnowledgeSearchPort(Protocol):
     ) -> list[KnowledgeResult]:
         """Return evidence already filtered to the execution context."""
 
+    async def list_sources(
+        self,
+        context: ExecutionContext,
+        limit: int = 100,
+    ) -> list[KnowledgeResult]:
+        """List authorized knowledge sources without searching their contents."""
+
 
 class IngestionPublisher(Protocol):
     """Publish durable document parsing work."""
 
-    async def publish(self, document_id: UUID) -> None:
+    async def publish(self, document_id: UUID, context: ExecutionContext) -> None:
         """Publish one idempotent parse job."""

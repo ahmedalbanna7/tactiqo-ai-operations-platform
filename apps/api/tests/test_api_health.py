@@ -109,3 +109,23 @@ async def test_invalid_correlation_id_is_replaced() -> None:
 
     assert response.status_code == status.HTTP_200_OK
     assert response.headers["X-Correlation-ID"] != "bad-value"
+
+
+@pytest.mark.anyio
+async def test_cors_preflight_allows_profile_put_from_local_ui() -> None:
+    """The browser can reach owner profile activation after successful discovery."""
+    transport = ASGITransport(app=create_app(_settings(), probes=[HealthyProbe()]))
+
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.options(
+            "/api/v1/ai/profiles/default_reasoning_llm",
+            headers={
+                "Origin": "http://127.0.0.1:13000",
+                "Access-Control-Request-Method": "PUT",
+                "Access-Control-Request-Headers": "content-type",
+            },
+        )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert "PUT" in response.headers["access-control-allow-methods"]
+    assert response.headers["access-control-allow-origin"] == "http://127.0.0.1:13000"

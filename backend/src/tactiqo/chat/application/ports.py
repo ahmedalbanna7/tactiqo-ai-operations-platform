@@ -6,7 +6,9 @@ from uuid import UUID
 from tactiqo.chat.domain.models import (
     AgentEvent,
     AgentRun,
+    ChatAttachment,
     Conversation,
+    ConversationMemory,
     Message,
     MessageRole,
     RunStatus,
@@ -52,6 +54,32 @@ class ChatRepository(Protocol):
         content: str,
     ) -> Message:
         """Append an immutable message."""
+
+    async def attach_document(
+        self, context: ExecutionContext, conversation_id: UUID, document_id: UUID
+    ) -> ChatAttachment | None:
+        """Attach one exact-scope knowledge document to a visible conversation."""
+
+    async def list_attachments(
+        self, context: ExecutionContext, conversation_id: UUID
+    ) -> list[ChatAttachment]:
+        """List authorized attachment references for one visible conversation."""
+
+    async def get_memory(
+        self,
+        context: ExecutionContext,
+        conversation_id: UUID,
+    ) -> ConversationMemory | None:
+        """Return memory only through the owning tenant and actor."""
+
+    async def save_memory(
+        self,
+        context: ExecutionContext,
+        conversation_id: UUID,
+        summary: str,
+        summarized_message_count: int,
+    ) -> ConversationMemory:
+        """Upsert one scoped rolling summary."""
 
     async def create_run(self, conversation_id: UUID, user_message_id: UUID) -> AgentRun:
         """Create a queued run."""

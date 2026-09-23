@@ -1,0 +1,13 @@
+# Default repository ownership
+* @ahmedalbanna7
+
+# Security- and architecture-sensitive areas
+/.github/ @ahmedalbanna7
+/docs/adr/ @ahmedalbanna7
+/docs/architecture/ @ahmedalbanna7
+/migrations/ @ahmedalbanna7
+/backend/src/tactiqo/shared/ @ahmedalbanna7
+/backend/src/tactiqo/integrations/ @ahmedalbanna7
+/backend/src/tactiqo/tools/ @ahmedalbanna7
+/backend/src/tactiqo/agents/ @ahmedalbanna7
+/infra/ @ahmedalbanna7

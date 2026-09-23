@@ -22,6 +22,7 @@ COPY backend/src ./backend/src
 COPY apps/api/src ./apps/api/src
 COPY apps/worker/src ./apps/worker/src
 COPY apps/mcp_demo/src ./apps/mcp_demo/src
+COPY scripts/init_metrics_auth.py ./scripts/init_metrics_auth.py
 
 RUN uv sync --frozen --no-group quality --no-group test \
         --extra infrastructure --extra documents --no-editable \

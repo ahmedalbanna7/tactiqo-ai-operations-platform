@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <img alt="Phase F1" src="https://img.shields.io/badge/phase-F1%20executable-0f8b6d">
+  <img alt="Phase F2" src="https://img.shields.io/badge/phase-F2%20complete-0f8b6d">
   <img alt="Python 3.12" src="https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white">
   <img alt="FastAPI" src="https://img.shields.io/badge/FastAPI-0.138-009688?logo=fastapi&logoColor=white">
   <img alt="Next.js" src="https://img.shields.io/badge/Next.js-16-black?logo=next.js">
@@ -18,10 +18,12 @@ combines an Arabic-first conversational workspace, durable agent orchestration,
 MCP tools, human approval for mutations, asynchronous document ingestion, and
 citation-grounded retrieval.
 
-> **Status:** Phase 0 and F1 run locally end to end. Production identity,
-> organization policy, external SaaS connectors, domain-agent packs, and the
-> F4.1 review/fallback/guardrail suite remain additive phases. Local demo
-> providers are deliberately rejected in production mode.
+> **Status:** Phase 0, F1, and F2 run locally end to end. F3's local LM Studio
+> LLM/Embedding Bank and Owner settings playground are operational. Production identity,
+> organization hierarchy, versioned authorization, scoped Agent Catalog packs,
+> and guarded Planner invocation are implemented. External SaaS credentials,
+> provider banks, specialist agent behavior, and full RAG remain additive phases.
+> Local demo providers are deliberately rejected in production mode.
 
 ![Tactiqo Arabic chat workspace](docs/assets/tactiqo-chat-welcome.png)
 
@@ -83,7 +85,7 @@ flowchart LR
     Graph --> Retrieval["Knowledge search port"]
 
     Tools --> MCP["MCP servers"]
-    MCP --> SaaS["Future Slack / Jira / Trello / other systems"]
+    MCP --> SaaS["Jira / Slack / future systems"]
 
     API --> Postgres["PostgreSQL canonical data"]
     API --> Redis["Redis short-lived state"]
@@ -93,7 +95,6 @@ flowchart LR
     Worker --> MinIO["MinIO originals"]
     Worker --> Postgres
     Retrieval --> Postgres
-    Retrieval -. "optional derived index" .-> Onyx["Onyx adapter"]
 ```
 
 ## Agentic execution flow
@@ -145,9 +146,7 @@ flowchart TD
     Normalize --> ACL["Classification and access metadata"]
     ACL --> Database["PostgreSQL canonical store"]
     Database --> Local["Local lexical development search"]
-    Database -. "authenticated optional adapter" .-> Onyx["Onyx derived index"]
     Local --> Revalidate["Post-retrieval scope validation"]
-    Onyx --> Revalidate
     Revalidate --> Answer["Grounded answer with citations"]
 ```
 
@@ -168,7 +167,6 @@ flowchart TD
 - **MinIO** for original document objects
 - **Redis 7** for short-lived infrastructure state
 - **Unstructured** for document parsing
-- **Onyx** behind an optional derived-index adapter
 - **Docker Compose** for the local platform
 
 ## Open Tactiqo locally
@@ -282,7 +280,7 @@ All exposed local ports bind to `127.0.0.1`.
 │   ├── agents              # Orchestration, guardrails, model ports
 │   ├── chat                # Conversations, messages, run lifecycle
 │   ├── ingestion           # Parser contracts and adapters
-│   ├── integrations/onyx   # Optional derived-index integration
+│   ├── integrations        # Tenant-scoped Jira/Slack SaaS connections
 │   ├── knowledge           # Documents, storage, retrieval, citations
 │   ├── shared              # Execution context, auth, database, health
 │   └── tools               # MCP gateway, policy, approvals, audit
@@ -320,6 +318,8 @@ and the
 Core invariants include:
 
 - organization and execution scope travel with every application request;
+- agent, tool, SQL, and RAG visibility is derived from organization,
+  department, optional team/project membership, and explicit agent assignments;
 - retrieval authorization happens before and after search;
 - tools are allowlisted, typed, permission-checked, timeout-limited, and audited;
 - material mutations require a deterministic approval policy and human decision;
@@ -333,11 +333,12 @@ Core invariants include:
 | Phase | Status | Outcome |
 | --- | --- | --- |
 | Phase 0 | Complete | Constitution, hierarchy, repository, pinned foundations |
-| F1 | Complete locally | Agentic chat, MCP, approval, ingestion, RAG, Arabic UI |
-| Identity and policy | Planned | Production SSO, organizations, roles, policy enforcement |
-| SaaS MCP connectors | Planned | Slack, Jira, Trello, Teams, email, and other systems |
-| Domain agents | Planned | PMO, finance, IT, quality, risk, executive, and specialist agents |
-| F4.1 | Planned | Review, retrieval safety, tool safety, fallback, recovery, documentation, red-team evaluation |
+| F1 | Complete locally | Agentic chat, approval, ingestion foundation, Arabic UI |
+| F2 | Complete locally | Production identity, RBAC/ABAC/ReBAC policy compiler, scoped Agent Catalog |
+| F3 | Operational slice | LM Studio Qwen3 chat, Nomic embeddings, AI Settings and provider routing |
+| Operational MCP | In progress | Authenticated Jira and Slack connections behind multi-server MCP routing |
+| Agent packs | Catalog complete | 22 versioned packs; specialist behavior is implemented in later phases |
+| F4.1 | Catalog complete | Review/Safety/Recovery pack registered; runtime behavior is implemented in F4 |
 
 See the detailed [F1 implementation plan](docs/planning/F1_AGENTIC_KNOWLEDGE_CORE.md)
 and [approved ADR](docs/adr/0001-function-first-agentic-core.md).
@@ -349,14 +350,19 @@ and [approved ADR](docs/adr/0001-function-first-agentic-core.md).
 - [F1 local runbook](docs/runbooks/F1_LOCAL_FLOW.md)
 - [Local development](docs/runbooks/LOCAL_DEVELOPMENT.md)
 - [Pinned upstream components](docs/integrations/UPSTREAM_COMPONENTS.md)
+- [Target SaaS architecture](docs/architecture/TACTIQO_TARGET_ARCHITECTURE.md)
+- [Execution roadmap](docs/plans/TACTIQO_EXECUTION_ROADMAP.md)
+- [Master implementation plan and progress tracker](docs/plans/MASTER_IMPLEMENTATION_PLAN.md)
+- [Local infrastructure lifecycle runbook](docs/runbooks/F0_LOCAL_INFRASTRUCTURE.md)
 - [Open decisions](docs/decisions/OPEN_DECISIONS.md)
 
 ## Known boundaries
 
 - The default local execution context is not production authentication.
-- Slack, Jira, Trello, and other external MCP servers are not connected yet.
-- Onyx indexing is optional; the local lexical adapter is the explicit F1
-  fallback.
+- Jira and Slack gateway support is implemented; live connections remain off
+  until their user/admin authorization is supplied.
+- Production RAG is deferred by ADR 0004. Local lexical search is development
+  behavior and is not presented as production RAG.
 - The demo MCP mutation is local and ephemeral.
 - F4.1 agents are planned and documented, not presented as active runtime
   protection.

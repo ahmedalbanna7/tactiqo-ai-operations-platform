@@ -51,9 +51,8 @@ the same `ToolGateway` boundary.
 4. Confirm the answer includes a visible citation to the uploaded document.
 
 PostgreSQL remains canonical, MinIO stores originals, RabbitMQ owns parse jobs,
-and the local lexical adapter is an explicit development fallback. Set
-`TACTIQO_KNOWLEDGE_SEARCH_ENABLED=true` only with an authenticated Onyx service
-token.
+and the local lexical adapter is development-only. Production RAG is deferred
+until the operational Jira and Slack MCP slice passes its release gates.
 
 ## Quality gates
 

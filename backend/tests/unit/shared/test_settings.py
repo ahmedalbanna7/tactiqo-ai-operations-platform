@@ -1,9 +1,11 @@
 """Unit tests for secret-safe typed settings."""
 
+from pathlib import Path
+
 import pytest
 from pydantic import SecretStr, ValidationError
 
-from tactiqo.shared.infrastructure.settings import Settings
+from tactiqo.shared.infrastructure.settings import ModelProviderName, Settings
 
 
 def test_safe_summary_excludes_all_secrets_and_secret_urls() -> None:
@@ -27,9 +29,42 @@ def test_safe_summary_excludes_all_secrets_and_secret_urls() -> None:
     assert "rabbitmq_url" not in summary
 
 
-def test_knowledge_search_fails_closed_without_service_token() -> None:
-    """Knowledge search cannot be enabled without provider authentication."""
-    with pytest.raises(ValidationError, match="Onyx service token is required"):
+def test_metrics_auth_token_is_loaded_from_secret_file(tmp_path: Path) -> None:
+    """Docker-mounted scrape credentials remain typed secrets and absent from summaries."""
+    marker = "mounted-scrape-token"
+    token_file = tmp_path / "metrics-token"
+    token_file.write_text(marker, encoding="utf-8")
+    settings = Settings(
+        _env_file=None,
+        database_url=SecretStr("postgresql+asyncpg://local"),
+        redis_url=SecretStr("redis://local"),
+        rabbitmq_url=SecretStr("amqp://local"),
+        minio_endpoint="http://minio:9000",
+        minio_access_key=SecretStr("local"),
+        minio_secret_key=SecretStr("local"),
+        metrics_auth_token_file=token_file,
+    )
+
+    assert settings.effective_metrics_auth_token == SecretStr(marker)
+    assert marker not in str(settings.safe_summary())
+
+
+@pytest.mark.parametrize(
+    ("overrides", "message"),
+    [
+        ({"mcp_jira_enabled": True}, "Jira MCP authorization is required"),
+        (
+            {"mcp_slack_enabled": True, "mcp_slack_url": "https://slack.example/mcp"},
+            "Slack MCP authorization is required",
+        ),
+    ],
+)
+def test_enabled_remote_mcp_requires_authorization(
+    overrides: dict[str, object],
+    message: str,
+) -> None:
+    """Remote integrations fail closed when no authorization is configured."""
+    with pytest.raises(ValidationError, match=message):
         Settings(
             _env_file=None,
             database_url=SecretStr("postgresql+asyncpg://local"),
@@ -38,6 +73,39 @@ def test_knowledge_search_fails_closed_without_service_token() -> None:
             minio_endpoint="http://minio:9000",
             minio_access_key=SecretStr("local"),
             minio_secret_key=SecretStr("local"),
-            knowledge_search_enabled=True,
-            onyx_service_token=None,
+            **overrides,
+        )
+
+
+def test_production_requires_oidc_when_local_identity_is_disabled() -> None:
+    """Production cannot start without a real configured identity boundary."""
+    with pytest.raises(ValidationError, match="OIDC identity provider"):
+        Settings(
+            _env_file=None,
+            environment="production",
+            local_development_context_enabled=False,
+            model_provider=ModelProviderName.OPENAI,
+            openai_api_key=SecretStr("test-only"),
+            database_url=SecretStr("postgresql+asyncpg://local"),
+            redis_url=SecretStr("redis://local"),
+            rabbitmq_url=SecretStr("amqp://local"),
+            minio_endpoint="http://minio:9000",
+            minio_access_key=SecretStr("local"),
+            minio_secret_key=SecretStr("local"),
+        )
+
+
+def test_staging_rejects_local_development_identity() -> None:
+    """Shared environments cannot impersonate the local development owner."""
+    with pytest.raises(ValidationError, match="forbidden outside local environments"):
+        Settings(
+            _env_file=None,
+            environment="staging",
+            local_development_context_enabled=True,
+            database_url=SecretStr("postgresql+asyncpg://local"),
+            redis_url=SecretStr("redis://local"),
+            rabbitmq_url=SecretStr("amqp://local"),
+            minio_endpoint="http://minio:9000",
+            minio_access_key=SecretStr("local"),
+            minio_secret_key=SecretStr("local"),
         )

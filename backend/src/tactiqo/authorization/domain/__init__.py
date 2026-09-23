@@ -1,0 +1,1 @@
+"""Authorization domain contracts."""

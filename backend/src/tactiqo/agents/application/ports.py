@@ -29,3 +29,13 @@ class ModelProviderPort(Protocol):
         context: ExecutionContext,
     ) -> str:
         """Synthesize the final grounded user-facing answer."""
+
+    async def answer_for(
+        self,
+        capability: str,
+        message: str,
+        evidence: Sequence[KnowledgeResult],
+        tool_results: Sequence[ToolResult],
+        context: ExecutionContext,
+    ) -> str:
+        """Synthesize using a vendor-neutral declared capability."""

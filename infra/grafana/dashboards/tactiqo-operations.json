@@ -1,0 +1,187 @@
+{
+  "uid": "tactiqo-operations-local",
+  "title": "Tactiqo Operations — Local",
+  "tags": ["tactiqo", "local", "operations"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "15s",
+  "time": { "from": "now-6h", "to": "now" },
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": { "type": "grafana", "uid": "-- Grafana --" },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "API scrape status",
+      "description": "1 = Prometheus scrape succeeds; 0 = target is unavailable.",
+      "datasource": { "type": "prometheus", "uid": "tactiqo-prometheus" },
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+      "fieldConfig": { "defaults": { "min": 0, "max": 1, "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] } }, "overrides": [] },
+      "options": { "colorMode": "background", "graphMode": "none", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "value" },
+      "targets": [{ "expr": "up{job=\"tactiqo-api\"}", "refId": "A" }]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Worker scrape status",
+      "description": "1 = authenticated worker scrape succeeds; this does not indicate that a delivery was processed.",
+      "datasource": { "type": "prometheus", "uid": "tactiqo-prometheus" },
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+      "fieldConfig": { "defaults": { "min": 0, "max": 1, "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] } }, "overrides": [] },
+      "options": { "colorMode": "background", "graphMode": "none", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "value" },
+      "targets": [{ "expr": "up{job=\"tactiqo-worker\"}", "refId": "A" }]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "HTTP request rate by status",
+      "datasource": { "type": "prometheus", "uid": "tactiqo-prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "reqps", "custom": { "drawStyle": "line", "lineInterpolation": "smooth", "lineWidth": 2, "fillOpacity": 12, "showPoints": "never" } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [{ "expr": "sum by (status_class) (rate(tactiqo_http_requests_total[5m]))", "legendFormat": "{{status_class}}", "refId": "A" }]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "HTTP 5xx ratio",
+      "description": "Low-traffic intervals may have no data; see provisional thresholds in the runbook.",
+      "datasource": { "type": "prometheus", "uid": "tactiqo-prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1, "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 10 } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "hidden", "placement": "bottom" }, "tooltip": { "mode": "single" } },
+      "targets": [{ "expr": "sum(rate(tactiqo_http_requests_total{status_class=\"5xx\"}[5m])) / clamp_min(sum(rate(tactiqo_http_requests_total[5m])), 0.000000001)", "legendFormat": "5xx ratio", "refId": "A" }]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "LLM and embedding attempts",
+      "datasource": { "type": "prometheus", "uid": "tactiqo-prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "fieldConfig": { "defaults": { "unit": "ops", "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 10 } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [{ "expr": "sum by (provider, operation, outcome) (rate(tactiqo_ai_provider_calls_total[5m]))", "legendFormat": "{{provider}} / {{operation}} / {{outcome}}", "refId": "A" }]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "MCP tool calls",
+      "datasource": { "type": "prometheus", "uid": "tactiqo-prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+      "fieldConfig": { "defaults": { "unit": "ops", "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 10 } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [{ "expr": "sum by (server_family, outcome) (rate(tactiqo_tool_calls_total[5m]))", "legendFormat": "{{server_family}} / {{outcome}}", "refId": "A" }]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Knowledge retrieval outcomes",
+      "datasource": { "type": "prometheus", "uid": "tactiqo-prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "fieldConfig": { "defaults": { "unit": "ops", "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 10 } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [{ "expr": "sum by (operation, outcome) (rate(tactiqo_knowledge_retrieval_total[5m]))", "legendFormat": "{{operation}} / {{outcome}}", "refId": "A" }]
+    },
+    {
+      "id": 8,
+      "type": "stat",
+      "title": "Ingestion ready-queue snapshot",
+      "description": "Publish-time point-in-time sample; check sample age before interpreting it as current.",
+      "datasource": { "type": "prometheus", "uid": "tactiqo-prometheus" },
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 20 },
+      "fieldConfig": { "defaults": { "unit": "short", "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "orange", "value": 50 }] } }, "overrides": [] },
+      "options": { "colorMode": "value", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "value" },
+      "targets": [{ "expr": "tactiqo_ingestion_queue_ready_messages", "refId": "A" }]
+    },
+    {
+      "id": 9,
+      "type": "stat",
+      "title": "Queue snapshot age",
+      "description": "Older than 120 seconds is stale and must not be used as current queue depth.",
+      "datasource": { "type": "prometheus", "uid": "tactiqo-prometheus" },
+      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 20 },
+      "fieldConfig": { "defaults": { "unit": "s", "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 120 }] } }, "overrides": [] },
+      "options": { "colorMode": "value", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "value" },
+      "targets": [{ "expr": "time() - tactiqo_ingestion_queue_depth_observed_at_seconds", "refId": "A" }]
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Worker delivery outcomes",
+      "description": "No data means no delivery metric has been observed since this worker started.",
+      "datasource": { "type": "prometheus", "uid": "tactiqo-prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+      "fieldConfig": { "defaults": { "unit": "ops", "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 10 } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [{ "expr": "sum by (outcome) (rate(tactiqo_worker_deliveries_total[5m]))", "legendFormat": "{{outcome}}", "refId": "A" }]
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Worker queue age (p95)",
+      "description": "Appears after deliveries with a valid AMQP timestamp; no data is not zero age.",
+      "datasource": { "type": "prometheus", "uid": "tactiqo-prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 28 },
+      "fieldConfig": { "defaults": { "unit": "s", "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 10 } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [{ "expr": "histogram_quantile(0.95, sum by (le, outcome) (rate(tactiqo_worker_delivery_queue_age_seconds_bucket[5m])))", "legendFormat": "p95 / {{outcome}}", "refId": "A" }]
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Object-storage operations",
+      "datasource": { "type": "prometheus", "uid": "tactiqo-prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 32 },
+      "fieldConfig": { "defaults": { "unit": "ops", "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 10 } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [{ "expr": "sum by (operation, outcome) (rate(tactiqo_object_storage_operations_total[5m]))", "legendFormat": "{{operation}} / {{outcome}}", "refId": "A" }]
+    },
+    {
+      "id": 13,
+      "type": "stat",
+      "title": "Queue snapshot missing",
+      "description": "1 means no publish-time queue sample exists in the current API process; 0 means a sample exists. Check snapshot age separately.",
+      "datasource": { "type": "prometheus", "uid": "tactiqo-prometheus" },
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 36 },
+      "fieldConfig": { "defaults": { "min": 0, "max": 1, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "orange", "value": 1 }] } }, "overrides": [] },
+      "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "value" },
+      "targets": [{ "expr": "absent(tactiqo_ingestion_queue_depth_observed_at_seconds) or vector(0)", "refId": "A" }]
+    },
+    {
+      "id": 14,
+      "type": "timeseries",
+      "title": "API request latency (p95)",
+      "description": "A provisional latency signal. Low traffic or no samples can leave gaps.",
+      "datasource": { "type": "prometheus", "uid": "tactiqo-prometheus" },
+      "gridPos": { "h": 8, "w": 9, "x": 6, "y": 36 },
+      "fieldConfig": { "defaults": { "unit": "s", "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 10 } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "hidden", "placement": "bottom" }, "tooltip": { "mode": "single" } },
+      "targets": [{ "expr": "histogram_quantile(0.95, sum by (le) (rate(tactiqo_http_request_duration_seconds_bucket[5m])))", "legendFormat": "p95", "refId": "A" }]
+    },
+    {
+      "id": 15,
+      "type": "timeseries",
+      "title": "Worker delivery failure ratio",
+      "description": "Provisional ratio; it needs at least five observed deliveries for the alert rule to apply.",
+      "datasource": { "type": "prometheus", "uid": "tactiqo-prometheus" },
+      "gridPos": { "h": 8, "w": 9, "x": 15, "y": 36 },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1, "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 10 } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "hidden", "placement": "bottom" }, "tooltip": { "mode": "single" } },
+      "targets": [{ "expr": "sum(rate(tactiqo_worker_deliveries_total{outcome=\"failed\"}[5m])) / clamp_min(sum(rate(tactiqo_worker_deliveries_total[5m])), 0.000000001)", "legendFormat": "failure ratio", "refId": "A" }]
+    }
+  ],
+  "links": [],
+  "liveNow": false
+}

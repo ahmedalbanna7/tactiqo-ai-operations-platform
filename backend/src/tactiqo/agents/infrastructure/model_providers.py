@@ -141,6 +141,18 @@ class DeterministicModelProvider:
             "ask about project status. There is not enough evidence to answer this request yet."
         )
 
+    async def answer_for(
+        self,
+        capability: str,
+        message: str,
+        evidence: Sequence[KnowledgeResult],
+        tool_results: Sequence[ToolResult],
+        context: ExecutionContext,
+    ) -> str:
+        """Keep deterministic tests compatible with capability routing."""
+        del capability
+        return await self.answer(message, evidence, tool_results, context)
+
     @staticmethod
     def _contains(value: str, candidates: tuple[str, ...]) -> bool:
         return any(candidate in value for candidate in candidates)
@@ -322,6 +334,18 @@ class OpenAIResponsesProvider:
             store=False,
         )
         return response.output_text or "No answer was produced."
+
+    async def answer_for(
+        self,
+        capability: str,
+        message: str,
+        evidence: Sequence[KnowledgeResult],
+        tool_results: Sequence[ToolResult],
+        context: ExecutionContext,
+    ) -> str:
+        """Use the configured OpenAI model for the requested abstract capability."""
+        del capability
+        return await self.answer(message, evidence, tool_results, context)
 
     @staticmethod
     def _evidence_text(evidence: Sequence[KnowledgeResult]) -> str:

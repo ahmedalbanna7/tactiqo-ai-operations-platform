@@ -7,6 +7,18 @@
     "build": "pnpm --filter @tactiqo/web build",
     "dev": "pnpm --filter @tactiqo/web dev",
     "lint": "pnpm --filter @tactiqo/web lint",
+    "stack:core": "docker compose --profile core up -d",
+    "stack:integrations": "docker compose --profile integrations up -d",
+    "stack:workers": "docker compose --profile workers up -d",
+    "stack:observability": "docker compose --profile core --profile workers --profile observability up -d prometheus grafana",
+    "test:alerts": "docker compose --profile core --profile workers --profile observability exec -T prometheus promtool test rules /etc/prometheus/alerts.test.yml",
+    "stack:all": "docker compose --profile core --profile integrations --profile workers --profile observability up -d",
     "typecheck": "pnpm --filter @tactiqo/web typecheck"
+  },
+  "pnpm": {
+    "overrides": {
+      "baseline-browser-mapping@>=2.0.0 <2.11.0": "2.11.0",
+      "nanoid@<3.3.18": "3.3.18"
+    }
   }
 }

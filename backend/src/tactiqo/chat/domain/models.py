@@ -43,6 +43,7 @@ class AgentEventType(StrEnum):
     APPROVAL_DECIDED = "approval.decided"
     MESSAGE_DELTA = "message.delta"
     MESSAGE_COMPLETED = "message.completed"
+    ARTIFACT_CREATED = "artifact.created"
     RUN_COMPLETED = "run.completed"
     RUN_FAILED = "run.failed"
     RUN_CANCELLED = "run.cancelled"
@@ -71,6 +72,30 @@ class Message:
     role: MessageRole
     content: str
     created_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class ChatAttachment:
+    """Safe conversation reference to an authorized knowledge document."""
+
+    id: UUID
+    conversation_id: UUID
+    document_id: UUID
+    name: str
+    status: str
+    domain: str
+    purpose: str
+    created_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class ConversationMemory:
+    """Tenant/user-scoped rolling summary for messages outside the recent window."""
+
+    conversation_id: UUID
+    summary: str
+    summarized_message_count: int
+    updated_at: datetime
 
 
 @dataclass(frozen=True, slots=True)

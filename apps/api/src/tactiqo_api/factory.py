@@ -15,6 +15,11 @@ from tactiqo.shared.infrastructure.readiness import (
 from tactiqo.shared.infrastructure.settings import Settings
 from tactiqo_api.composition import build_lifespan
 from tactiqo_api.middleware import CorrelationIdMiddleware
+from tactiqo_api.observability import (
+    HttpRequestMetrics,
+    HttpTelemetryMiddleware,
+    configure_http_telemetry_logger,
+)
 from tactiqo_api.routes import api_router, router
 
 
@@ -77,9 +82,16 @@ def create_app(
         CORSMiddleware,
         allow_origins=list(settings.allowed_origins),
         allow_credentials=False,
-        allow_methods=["GET", "POST", "OPTIONS"],
+        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
         allow_headers=["Content-Type", "X-Correlation-ID", "Last-Event-ID"],
         expose_headers=["X-Correlation-ID"],
+    )
+    http_metrics = HttpRequestMetrics()
+    app.state.http_request_metrics = http_metrics
+    app.add_middleware(
+        HttpTelemetryMiddleware,
+        logger=configure_http_telemetry_logger(),
+        metrics=http_metrics,
     )
     app.include_router(router)
     app.include_router(api_router)

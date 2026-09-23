@@ -59,6 +59,43 @@ class MessageRow(Base):
     conversation: Mapped[ConversationRow] = relationship(back_populates="messages")
 
 
+class ChatAttachmentRow(Base):
+    """Conversation-visible reference; knowledge storage remains the source of truth."""
+
+    __tablename__ = "chat_attachments"
+    __table_args__ = (
+        UniqueConstraint("conversation_id", "document_id", name="uq_chat_attachment_document"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    conversation_id: Mapped[UUID] = mapped_column(
+        ForeignKey("chat_conversations.id", ondelete="CASCADE"), index=True
+    )
+    document_id: Mapped[UUID] = mapped_column(
+        ForeignKey("knowledge_documents.id", ondelete="CASCADE"), index=True
+    )
+    organization_id: Mapped[str] = mapped_column(String(128), index=True)
+    actor_id: Mapped[str] = mapped_column(String(128), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class ConversationMemoryRow(Base):
+    """Rolling conversation summary isolated by tenant, actor, and conversation."""
+
+    __tablename__ = "chat_conversation_memories"
+
+    conversation_id: Mapped[UUID] = mapped_column(
+        ForeignKey("chat_conversations.id", ondelete="CASCADE"), primary_key=True
+    )
+    organization_id: Mapped[str] = mapped_column(String(128), index=True)
+    actor_id: Mapped[str] = mapped_column(String(128), index=True)
+    summary: Mapped[str] = mapped_column(Text)
+    summarized_message_count: Mapped[int] = mapped_column(default=0)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, onupdate=utc_now
+    )
+
+
 class AgentRunRow(Base):
     """Persistence model for resumable agent runs."""
 

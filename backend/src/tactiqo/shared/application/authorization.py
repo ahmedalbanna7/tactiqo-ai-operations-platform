@@ -16,6 +16,7 @@ class ProtectedAction(StrEnum):
     TOOL_READ = "tool.read"
     TOOL_WRITE = "tool.write"
     DOCUMENT_UPLOAD = "document.upload"
+    DOCUMENT_REVOKE = "document.revoke"
 
 
 class AuthorizationDecision(BaseModel):

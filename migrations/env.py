@@ -5,7 +5,14 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
+from tactiqo.agents.catalog.infrastructure import tables as agent_catalog_tables  # noqa: F401
+from tactiqo.ai.infrastructure import tables as ai_tables  # noqa: F401
+from tactiqo.artifacts.infrastructure import tables as artifact_tables  # noqa: F401
+from tactiqo.authorization.infrastructure import tables as authorization_tables  # noqa: F401
 from tactiqo.chat.infrastructure import tables as chat_tables  # noqa: F401
+from tactiqo.identity.infrastructure import tables as identity_tables  # noqa: F401
+from tactiqo.integrations.infrastructure import tables as integration_tables  # noqa: F401
+from tactiqo.jobs.infrastructure import tables as job_tables  # noqa: F401
 from tactiqo.knowledge.infrastructure import tables as knowledge_tables  # noqa: F401
 from tactiqo.shared.infrastructure.database import Base
 from tactiqo.shared.infrastructure.settings import Settings

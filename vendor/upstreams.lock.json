@@ -4,17 +4,6 @@
   "policy": "Exact release tags and commits are recorded. Source checkouts are ignored by the platform repository and are never imported directly by business modules.",
   "repositories": [
     {
-      "name": "onyx",
-      "repository": "onyx-dot-app/onyx",
-      "url": "https://github.com/onyx-dot-app/onyx.git",
-      "release": "v4.3.9",
-      "commit": "1da679cefc96165c6b9b64c3bc769584b88f88c2",
-      "destination": "vendor/upstream/onyx",
-      "verification_path": "deployment/docker_compose/docker-compose.yml",
-      "runtime_phase": "Phase 3",
-      "integration_boundary": "KnowledgeSearchPort"
-    },
-    {
       "name": "unstructured",
       "repository": "Unstructured-IO/unstructured",
       "url": "https://github.com/Unstructured-IO/unstructured.git",

@@ -1,0 +1,115 @@
+groups:
+  - name: tactiqo-local-operational-triggers
+    interval: 15s
+    rules:
+      - alert: TactiqoApiScrapeUnavailable
+        expr: up{job="tactiqo-api"} == 0
+        for: 1m
+        labels:
+          severity: warning
+          component: api
+        annotations:
+          summary: Tactiqo API metrics target is unavailable
+          description: Prometheus has failed to scrape the API metrics endpoint for at least one minute.
+
+      - alert: TactiqoWorkerScrapeUnavailable
+        expr: up{job="tactiqo-worker"} == 0
+        for: 1m
+        labels:
+          severity: warning
+          component: worker
+        annotations:
+          summary: Tactiqo worker metrics target is unavailable
+          description: Prometheus has failed to scrape the authenticated worker metrics endpoint for at least one minute.
+
+      - alert: TactiqoApiHighServerErrorRatio
+        expr: |
+          (
+            sum(rate(tactiqo_http_requests_total{status_class="5xx"}[5m]))
+            / clamp_min(sum(rate(tactiqo_http_requests_total[5m])), 0.000000001)
+          ) > 0.05
+          and sum(increase(tactiqo_http_requests_total[5m])) >= 20
+        labels:
+          severity: warning
+          component: api
+        annotations:
+          summary: Tactiqo API server error ratio is elevated
+          description: More than 5 percent of at least 20 requests were 5xx responses over the recent window.
+
+      - alert: TactiqoProviderFailureRatioHigh
+        expr: |
+          (
+            sum(rate(tactiqo_ai_provider_calls_total{outcome="failure"}[5m]))
+            / clamp_min(sum(rate(tactiqo_ai_provider_calls_total[5m])), 0.000000001)
+          ) > 0.20
+          and sum(increase(tactiqo_ai_provider_calls_total[5m])) >= 5
+        labels:
+          severity: warning
+          component: ai_provider
+        annotations:
+          summary: Tactiqo AI provider failures are elevated
+          description: More than 20 percent of at least five provider calls failed over the recent window.
+
+      - alert: TactiqoToolFailureRatioHigh
+        expr: |
+          (
+            sum(rate(tactiqo_tool_calls_total{outcome="failure"}[5m]))
+            / clamp_min(sum(rate(tactiqo_tool_calls_total[5m])), 0.000000001)
+          ) > 0.10
+          and sum(increase(tactiqo_tool_calls_total[5m])) >= 5
+        labels:
+          severity: warning
+          component: tools
+        annotations:
+          summary: Tactiqo tool-call failures are elevated
+          description: More than 10 percent of at least five instrumented calls failed over the recent window.
+
+      - alert: TactiqoIngestionQueueDepthHigh
+        expr: |
+          tactiqo_ingestion_queue_ready_messages > 50
+          and (time() - tactiqo_ingestion_queue_depth_observed_at_seconds) < 120
+        for: 1m
+        labels:
+          severity: info
+          component: ingestion
+        annotations:
+          summary: A fresh ingestion queue sample is above the local investigation threshold
+          description: This is a point-in-time ready-message sample, not an authoritative or continuously refreshed queue depth.
+
+      - alert: TactiqoIngestionQueueSnapshotStale
+        expr: time() - tactiqo_ingestion_queue_depth_observed_at_seconds > 120
+        for: 1m
+        labels:
+          severity: info
+          component: ingestion
+        annotations:
+          summary: The last ingestion queue snapshot is stale
+          description: The API only samples ready depth during publishing; this signal is not a continuously refreshed broker measurement.
+
+      - alert: TactiqoWorkerDeliveryFailureRatioHigh
+        expr: |
+          (
+            sum(rate(tactiqo_worker_deliveries_total{outcome="failed"}[5m]))
+            / clamp_min(sum(rate(tactiqo_worker_deliveries_total[5m])), 0.000000001)
+          ) > 0.20
+          and sum(increase(tactiqo_worker_deliveries_total[5m])) >= 5
+        labels:
+          severity: warning
+          component: worker
+        annotations:
+          summary: Tactiqo worker delivery failures are elevated
+          description: More than 20 percent of at least five observed deliveries failed over the recent window.
+
+      - alert: TactiqoApiRequestLatencyP95High
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le) (rate(tactiqo_http_request_duration_seconds_bucket[5m]))
+          ) > 2.5
+          and sum(increase(tactiqo_http_request_duration_seconds_count[5m])) >= 20
+        labels:
+          severity: info
+          component: api
+        annotations:
+          summary: Tactiqo API request latency p95 is elevated
+          description: The provisional local trigger is above 2.5 seconds with at least 20 observations in five minutes; calibrate under representative load.

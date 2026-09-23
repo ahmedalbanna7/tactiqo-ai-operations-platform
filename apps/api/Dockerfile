@@ -16,7 +16,7 @@ COPY pyproject.toml uv.lock README.md ./
 
 RUN python -m pip install --no-cache-dir uv==0.11.24 \
     && uv sync --frozen --no-group quality --no-group test \
-        --extra infrastructure --no-install-project
+        --extra infrastructure --extra documents --no-install-project
 
 COPY alembic.ini ./
 COPY migrations ./migrations
@@ -24,9 +24,10 @@ COPY backend/src ./backend/src
 COPY apps/api/src ./apps/api/src
 COPY apps/worker/src ./apps/worker/src
 COPY apps/mcp_demo/src ./apps/mcp_demo/src
+COPY scripts/init_metrics_auth.py ./scripts/init_metrics_auth.py
 
 RUN uv sync --frozen --no-group quality --no-group test \
-        --extra infrastructure --no-editable \
+        --extra infrastructure --extra documents --no-editable \
     && /usr/local/bin/python -m pip uninstall --yes uv
 
 USER tactiqo

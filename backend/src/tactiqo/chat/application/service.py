@@ -8,6 +8,7 @@ from tactiqo.chat.domain.models import (
     AgentEvent,
     AgentEventType,
     AgentRun,
+    ChatAttachment,
     Conversation,
     Message,
     MessageRole,
@@ -55,6 +56,13 @@ class ChatService:
             return None
         return await self._repository.list_messages(context, conversation_id)
 
+    async def conversation_exists(
+        self, context: ExecutionContext, conversation_id: UUID
+    ) -> bool:
+        """Validate an upload target within the caller's conversation scope."""
+        await self._require(context, ProtectedAction.CHAT)
+        return await self._repository.get_conversation(context, conversation_id) is not None
+
     async def send_message(
         self,
         context: ExecutionContext,
@@ -73,6 +81,21 @@ class ChatService:
         run = await self._repository.create_run(conversation_id, message.id)
         self._supervisor.start(run.id, message.content, context)
         return run
+
+    async def attach_document(
+        self, context: ExecutionContext, conversation_id: UUID, document_id: UUID
+    ) -> ChatAttachment | None:
+        """Persist a document reference only after chat authorization and scope checks."""
+        await self._require(context, ProtectedAction.CHAT)
+        return await self._repository.attach_document(context, conversation_id, document_id)
+
+    async def list_attachments(
+        self, context: ExecutionContext, conversation_id: UUID
+    ) -> list[ChatAttachment] | None:
+        """Return scoped attachment cards or hide an unknown conversation."""
+        if await self._repository.get_conversation(context, conversation_id) is None:
+            return None
+        return await self._repository.list_attachments(context, conversation_id)
 
     async def get_run(
         self,

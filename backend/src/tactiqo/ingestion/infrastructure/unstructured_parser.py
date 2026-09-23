@@ -11,6 +11,7 @@ from uuid import UUID, uuid4
 import anyio
 from docx import Document
 from openpyxl import load_workbook
+from pptx import Presentation
 from pypdf import PdfReader
 from unstructured.partition.auto import partition
 
@@ -73,7 +74,7 @@ class UnstructuredDocumentParser:
         finally:
             temporary_path.unlink(missing_ok=True)
 
-    def _native_fallback(
+    def _native_fallback(  # noqa: C901, PLR0912 - isolated format branches
         self,
         document_id: UUID,
         name: str,
@@ -82,6 +83,9 @@ class UnstructuredDocumentParser:
     ) -> list[CanonicalDocumentElement]:
         if suffix == ".pdf":
             reader = PdfReader(BytesIO(content))
+            if reader.is_encrypted:
+                message = "encrypted_pdf_not_supported"
+                raise ValueError(message)
             entries = [
                 (page.extract_text() or "", {"file": name, "page": index})
                 for index, page in enumerate(reader.pages, start=1)
@@ -96,8 +100,28 @@ class UnstructuredDocumentParser:
                     (paragraph.text, {"file": name, "paragraph": index})
                     for index, paragraph in enumerate(document.paragraphs, start=1)
                 ]
+                for table_index, table in enumerate(document.tables, start=1):
+                    for row_index, row in enumerate(table.rows, start=1):
+                        entries.append(
+                            (
+                                " | ".join(cell.text for cell in row.cells),
+                                {"file": name, "table": table_index, "row": row_index},
+                            )
+                        )
             finally:
                 path.unlink(missing_ok=True)
+        elif suffix == ".pptx":
+            presentation = Presentation(BytesIO(content))
+            entries = []
+            for slide_index, slide in enumerate(presentation.slides, start=1):
+                for shape_index, shape in enumerate(slide.shapes, start=1):
+                    text = getattr(shape, "text", "")
+                    entries.append(
+                        (
+                            text,
+                            {"file": name, "slide": slide_index, "shape": shape_index},
+                        )
+                    )
         elif suffix == ".xlsx":
             with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as handle:
                 handle.write(content)
@@ -163,6 +187,7 @@ class UnstructuredDocumentParser:
             "application/pdf": ".pdf",
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ".xlsx",
+            "application/vnd.openxmlformats-officedocument.presentationml.presentation": ".pptx",
             "text/csv": ".csv",
             "text/markdown": ".md",
         }.get(content_type, ".txt")

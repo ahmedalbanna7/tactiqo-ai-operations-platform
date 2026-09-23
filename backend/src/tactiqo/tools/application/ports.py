@@ -10,7 +10,7 @@ from tactiqo.tools.domain.models import ApprovalRequest, ApprovalStatus, ToolDef
 class ToolGateway(Protocol):
     """Discover and invoke tools without leaking MCP SDK types."""
 
-    async def list_tools(self) -> list[ToolDefinition]:
+    async def list_tools(self, context: ExecutionContext) -> list[ToolDefinition]:
         """Return the normalized tool catalogue."""
 
     async def call_tool(

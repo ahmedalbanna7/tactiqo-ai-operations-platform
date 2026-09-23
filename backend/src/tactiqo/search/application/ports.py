@@ -1,4 +1,4 @@
-"""Stable search contracts that isolate the platform from Onyx internals."""
+"""Stable search contracts that isolate the platform from search providers."""
 
 from dataclasses import dataclass
 from typing import Protocol

@@ -35,7 +35,34 @@ jobs:
         run: uv run ruff check .
 
       - name: Strict type check
-        run: uv run mypy backend/src apps/api/src
+        run: uv run mypy backend/src apps/api/src apps/worker/src apps/mcp_demo/src
 
       - name: Tests
         run: uv run pytest
+
+      - name: Verify migration graph
+        run: uv run alembic heads
+
+  prometheus-rules:
+    name: Prometheus alert-rule tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Test alert behavior with promtool
+        run: >-
+          docker run --rm
+          --entrypoint /bin/promtool
+          -v "${{ github.workspace }}/infra/otel:/etc/prometheus:ro"
+          prom/prometheus:v3.13.3@sha256:6976aa8a60fec930796ce5772b8d12da7a318a5daa8d40d69c5c7819a05eeed7
+          test rules /etc/prometheus/alerts.test.yml
+
+      - name: Check alert-rule syntax
+        run: >-
+          docker run --rm
+          --entrypoint /bin/promtool
+          -v "${{ github.workspace }}/infra/otel:/etc/prometheus:ro"
+          prom/prometheus:v3.13.3@sha256:6976aa8a60fec930796ce5772b8d12da7a318a5daa8d40d69c5c7819a05eeed7
+          check rules /etc/prometheus/alerts.yml

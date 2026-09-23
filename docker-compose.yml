@@ -2,7 +2,8 @@ name: tactiqo
 
 services:
   postgres:
-    image: postgres:16.10-alpine@sha256:029660641a0cfc575b14f336ba448fb8a75fd595d42e1fa316b9fb4378742297
+    profiles: ["core", "workers", "observability"]
+    image: pgvector/pgvector:0.8.1-pg16@sha256:33198da2828a14c30348d2ccb4750833d5ed9a44c88d840a0e523d7417120337
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-tactiqo}
       POSTGRES_USER: ${POSTGRES_USER:-tactiqo_app}
@@ -15,12 +16,13 @@ services:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
-      retries: 10
-      start_period: 10s
+      retries: 24
+      start_period: 90s
     restart: unless-stopped
     networks: [core]
 
   redis:
+    profiles: ["core", "observability"]
     image: redis:7.4.2-alpine@sha256:02419de7eddf55aa5bcf49efb74e88fa8d931b4d77c07eff8a6b2144472b6952
     command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
     ports:
@@ -36,6 +38,7 @@ services:
     networks: [core]
 
   rabbitmq:
+    profiles: ["core", "workers", "observability"]
     image: rabbitmq:4.1.2-management-alpine@sha256:6a77282b9ac7dcc50566459702b905d67e66c24ad54bf05b47529af031cdc7ff
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:-tactiqo_app}
@@ -55,6 +58,7 @@ services:
     networks: [core]
 
   minio:
+    profiles: ["core", "workers", "observability"]
     image: minio/minio:RELEASE.2025-04-22T22-12-26Z@sha256:a1ea29fa28355559ef137d71fc570e508a214ec84ff8083e39bc5428980b015e
     command: server /data --console-address ":9001"
     environment:
@@ -74,6 +78,7 @@ services:
     networks: [core]
 
   mcp-demo:
+    profiles: ["integrations"]
     build:
       context: .
       dockerfile: apps/mcp_demo/Dockerfile
@@ -82,6 +87,7 @@ services:
     networks: [core]
 
   migrate:
+    profiles: ["core", "workers"]
     build:
       context: .
       dockerfile: apps/api/Dockerfile
@@ -99,7 +105,24 @@ services:
     restart: "no"
     networks: [core]
 
+  metrics-auth-init:
+    profiles: ["core", "workers", "observability"]
+    image: tactiqo-api
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    user: "0:0"
+    command: ["python", "scripts/init_metrics_auth.py"]
+    environment:
+      TACTIQO_METRICS_AUTH_TOKEN: ${TACTIQO_METRICS_AUTH_TOKEN:-}
+      TACTIQO_METRICS_AUTH_TOKEN_FILE: /run/tactiqo-metrics/metrics-token
+    volumes:
+      - metrics_auth_data:/run/tactiqo-metrics
+    restart: "no"
+    networks: [core]
+
   api:
+    profiles: ["core"]
     build:
       context: .
       dockerfile: apps/api/Dockerfile
@@ -107,6 +130,8 @@ services:
       TACTIQO_APP_NAME: ${TACTIQO_APP_NAME:-Tactiqo AI Operations Platform}
       TACTIQO_APP_VERSION: ${TACTIQO_APP_VERSION:-0.1.0}
       TACTIQO_ENVIRONMENT: ${TACTIQO_ENVIRONMENT:-local}
+      TACTIQO_METRICS_AUTH_TOKEN: ${TACTIQO_METRICS_AUTH_TOKEN:-}
+      TACTIQO_METRICS_AUTH_TOKEN_FILE: /run/tactiqo-metrics/metrics-token
       TACTIQO_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-tactiqo_app}:${POSTGRES_PASSWORD:-change-me}@postgres:5432/${POSTGRES_DB:-tactiqo}
       TACTIQO_REDIS_URL: redis://redis:6379/0
       TACTIQO_RABBITMQ_URL: amqp://${RABBITMQ_DEFAULT_USER:-tactiqo_app}:${RABBITMQ_DEFAULT_PASS:-change-me}@rabbitmq:5672/
@@ -114,23 +139,40 @@ services:
       TACTIQO_MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-change-me}
       TACTIQO_MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-change-me}
       TACTIQO_MINIO_BUCKET: ${TACTIQO_MINIO_BUCKET:-tactiqo-knowledge}
-      TACTIQO_MODEL_PROVIDER: ${TACTIQO_MODEL_PROVIDER:-deterministic}
+      TACTIQO_MODEL_PROVIDER: ${TACTIQO_MODEL_PROVIDER:-ai_bank}
       TACTIQO_OPENAI_API_KEY: ${TACTIQO_OPENAI_API_KEY:-}
       TACTIQO_OPENAI_MODEL: ${TACTIQO_OPENAI_MODEL:-gpt-5.6-sol}
       TACTIQO_OPENAI_REASONING_EFFORT: ${TACTIQO_OPENAI_REASONING_EFFORT:-low}
+      TACTIQO_AGENT_TIMEOUT_SECONDS: ${TACTIQO_AGENT_TIMEOUT_SECONDS:-300}
       TACTIQO_MCP_ENABLED: ${TACTIQO_MCP_ENABLED:-true}
+      TACTIQO_MCP_DEMO_ENABLED: ${TACTIQO_MCP_DEMO_ENABLED:-true}
       TACTIQO_MCP_DEMO_URL: http://mcp-demo:8100/mcp
-      TACTIQO_KNOWLEDGE_SEARCH_ENABLED: ${TACTIQO_KNOWLEDGE_SEARCH_ENABLED:-false}
-      TACTIQO_ONYX_BASE_URL: ${TACTIQO_ONYX_BASE_URL:-http://localhost:8080}
-      TACTIQO_ONYX_SERVICE_TOKEN: ${TACTIQO_ONYX_SERVICE_TOKEN:-}
+      TACTIQO_MCP_JIRA_ENABLED: ${TACTIQO_MCP_JIRA_ENABLED:-false}
+      TACTIQO_MCP_JIRA_URL: ${TACTIQO_MCP_JIRA_URL:-https://mcp.atlassian.com/v2/mcp?tools=all}
+      TACTIQO_MCP_JIRA_AUTHORIZATION: ${TACTIQO_MCP_JIRA_AUTHORIZATION:-}
+      TACTIQO_MCP_JIRA_OAUTH_STORAGE: ${TACTIQO_MCP_JIRA_OAUTH_STORAGE:-}
+      TACTIQO_MCP_SLACK_ENABLED: ${TACTIQO_MCP_SLACK_ENABLED:-false}
+      TACTIQO_MCP_SLACK_URL: ${TACTIQO_MCP_SLACK_URL:-}
+      TACTIQO_MCP_SLACK_AUTHORIZATION: ${TACTIQO_MCP_SLACK_AUTHORIZATION:-}
+      TACTIQO_INTEGRATION_CONNECTIONS_ENABLED: ${TACTIQO_INTEGRATION_CONNECTIONS_ENABLED:-false}
+      TACTIQO_CREDENTIAL_ENCRYPTION_KEY: ${TACTIQO_CREDENTIAL_ENCRYPTION_KEY:-}
+      TACTIQO_OAUTH_PUBLIC_API_BASE_URL: ${TACTIQO_OAUTH_PUBLIC_API_BASE_URL:-http://127.0.0.1:18000}
+      TACTIQO_OAUTH_WEB_BASE_URL: ${TACTIQO_OAUTH_WEB_BASE_URL:-http://127.0.0.1:13000}
+      TACTIQO_SLACK_OAUTH_CLIENT_ID: ${TACTIQO_SLACK_OAUTH_CLIENT_ID:-}
+      TACTIQO_SLACK_OAUTH_CLIENT_SECRET: ${TACTIQO_SLACK_OAUTH_CLIENT_SECRET:-}
+      TACTIQO_WORK_ENVELOPE_SIGNING_KEY: ${TACTIQO_WORK_ENVELOPE_SIGNING_KEY:-local-only-work-envelope-key-change-me}
     ports:
       - "127.0.0.1:${TACTIQO_API_HOST_PORT:-18000}:8000"
+    volumes:
+      - ./.local/oauth:/app/.local/oauth
+      - metrics_auth_data:/run/tactiqo-metrics:ro
     depends_on:
+      postgres: { condition: service_healthy }
       migrate: { condition: service_completed_successfully }
       redis: { condition: service_healthy }
       rabbitmq: { condition: service_healthy }
       minio: { condition: service_healthy }
-      mcp-demo: { condition: service_started }
+      metrics-auth-init: { condition: service_completed_successfully }
     healthcheck:
       test:
         [
@@ -147,11 +189,15 @@ services:
     networks: [core]
 
   worker:
+    profiles: ["workers"]
     build:
       context: .
       dockerfile: apps/worker/Dockerfile
     environment:
       TACTIQO_ENVIRONMENT: ${TACTIQO_ENVIRONMENT:-local}
+      TACTIQO_METRICS_AUTH_TOKEN: ${TACTIQO_METRICS_AUTH_TOKEN:-}
+      TACTIQO_METRICS_AUTH_TOKEN_FILE: /run/tactiqo-metrics/metrics-token
+      TACTIQO_METRICS_PORT: 8101
       TACTIQO_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-tactiqo_app}:${POSTGRES_PASSWORD:-change-me}@postgres:5432/${POSTGRES_DB:-tactiqo}
       TACTIQO_REDIS_URL: redis://redis:6379/0
       TACTIQO_RABBITMQ_URL: amqp://${RABBITMQ_DEFAULT_USER:-tactiqo_app}:${RABBITMQ_DEFAULT_PASS:-change-me}@rabbitmq:5672/
@@ -159,17 +205,68 @@ services:
       TACTIQO_MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-change-me}
       TACTIQO_MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-change-me}
       TACTIQO_MINIO_BUCKET: ${TACTIQO_MINIO_BUCKET:-tactiqo-knowledge}
-      TACTIQO_KNOWLEDGE_SEARCH_ENABLED: ${TACTIQO_KNOWLEDGE_SEARCH_ENABLED:-false}
-      TACTIQO_ONYX_BASE_URL: ${TACTIQO_ONYX_BASE_URL:-http://localhost:8080}
-      TACTIQO_ONYX_SERVICE_TOKEN: ${TACTIQO_ONYX_SERVICE_TOKEN:-}
+      TACTIQO_WORK_ENVELOPE_SIGNING_KEY: ${TACTIQO_WORK_ENVELOPE_SIGNING_KEY:-local-only-work-envelope-key-change-me}
     depends_on:
+      postgres: { condition: service_healthy }
       migrate: { condition: service_completed_successfully }
+      metrics-auth-init: { condition: service_completed_successfully }
       rabbitmq: { condition: service_healthy }
       minio: { condition: service_healthy }
+    volumes:
+      - metrics_auth_data:/run/tactiqo-metrics:ro
+    expose: ["8101"]
+    restart: unless-stopped
+    networks: [core]
+
+  prometheus:
+    profiles: ["observability"]
+    image: prom/prometheus:v3.13.3@sha256:6976aa8a60fec930796ce5772b8d12da7a318a5daa8d40d69c5c7819a05eeed7
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=15d
+      - --storage.tsdb.retention.size=2GB
+      - --web.listen-address=0.0.0.0:9090
+    ports:
+      - "127.0.0.1:${TACTIQO_PROMETHEUS_HOST_PORT:-19091}:9090"
+    volumes:
+      - ./infra/otel/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./infra/otel/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - ./infra/otel/alerts.test.yml:/etc/prometheus/alerts.test.yml:ro
+      - prometheus_data:/prometheus
+      - metrics_auth_data:/run/tactiqo-metrics:ro
+    depends_on:
+      api: { condition: service_healthy }
+      worker: { condition: service_started }
+    restart: unless-stopped
+    networks: [core]
+
+  grafana:
+    profiles: ["observability"]
+    image: grafana/grafana:13.2.0@sha256:95a8098fb092130e111b0264a9be4d3a2bd5405e5dba88d4b8f1f630b389614e
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_NAME: Main Org.
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_PLUGINS_PREINSTALL_DISABLED: "true"
+      GF_PLUGINS_PLUGIN_ADMIN_ENABLED: "false"
+      GF_SECURITY_ALLOW_EMBEDDING: "false"
+      GF_SERVER_ROOT_URL: http://127.0.0.1:${TACTIQO_GRAFANA_HOST_PORT:-13001}/
+    ports:
+      - "127.0.0.1:${TACTIQO_GRAFANA_HOST_PORT:-13001}:3000"
+    volumes:
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      prometheus: { condition: service_started }
     restart: unless-stopped
     networks: [core]
 
   web:
+    profiles: ["core"]
     build:
       context: .
       dockerfile: apps/web/Dockerfile
@@ -203,3 +300,6 @@ volumes:
   redis_data:
   rabbitmq_data:
   minio_data:
+  prometheus_data:
+  grafana_data:
+  metrics_auth_data:

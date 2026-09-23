@@ -11,7 +11,9 @@ from tactiqo.chat.domain.models import (
     AgentEvent,
     AgentEventType,
     AgentRun,
+    ChatAttachment,
     Conversation,
+    ConversationMemory,
     Message,
     MessageRole,
     RunStatus,
@@ -19,9 +21,12 @@ from tactiqo.chat.domain.models import (
 from tactiqo.chat.infrastructure.tables import (
     AgentEventRow,
     AgentRunRow,
+    ChatAttachmentRow,
+    ConversationMemoryRow,
     ConversationRow,
     MessageRow,
 )
+from tactiqo.knowledge.infrastructure.tables import KnowledgeDocumentRow
 from tactiqo.shared.domain.execution import ExecutionContext
 from tactiqo.shared.infrastructure.database import session_scope
 
@@ -125,6 +130,125 @@ class SqlAlchemyChatRepository:
             await session.flush()
             await session.refresh(row)
         return self._message(row)
+
+    async def attach_document(
+        self, context: ExecutionContext, conversation_id: UUID, document_id: UUID
+    ) -> ChatAttachment | None:
+        """Bind a visible actor-owned document to an actor-owned conversation."""
+        async with session_scope(self._sessions) as session:
+            conversation = await session.scalar(
+                select(ConversationRow).where(
+                    ConversationRow.id == conversation_id,
+                    ConversationRow.organization_id == context.organization_id,
+                    ConversationRow.actor_id == context.actor_id,
+                )
+            )
+            document = await session.scalar(
+                select(KnowledgeDocumentRow).where(
+                    KnowledgeDocumentRow.id == document_id,
+                    KnowledgeDocumentRow.organization_id == context.organization_id,
+                    KnowledgeDocumentRow.actor_id == context.actor_id,
+                )
+            )
+            if conversation is None or document is None:
+                return None
+            existing = await session.scalar(
+                select(ChatAttachmentRow).where(
+                    ChatAttachmentRow.conversation_id == conversation_id,
+                    ChatAttachmentRow.document_id == document_id,
+                )
+            )
+            row = existing or ChatAttachmentRow(
+                conversation_id=conversation_id,
+                document_id=document_id,
+                organization_id=context.organization_id,
+                actor_id=context.actor_id,
+            )
+            session.add(row)
+            await session.flush()
+            await session.refresh(row)
+            return self._attachment(row, document)
+
+    async def list_attachments(
+        self, context: ExecutionContext, conversation_id: UUID
+    ) -> list[ChatAttachment]:
+        """List cards only after intersecting conversation and document scope."""
+        statement = (
+            select(ChatAttachmentRow, KnowledgeDocumentRow)
+            .join(ConversationRow, ConversationRow.id == ChatAttachmentRow.conversation_id)
+            .join(KnowledgeDocumentRow, KnowledgeDocumentRow.id == ChatAttachmentRow.document_id)
+            .where(
+                ChatAttachmentRow.conversation_id == conversation_id,
+                ConversationRow.organization_id == context.organization_id,
+                ConversationRow.actor_id == context.actor_id,
+                KnowledgeDocumentRow.organization_id == context.organization_id,
+                KnowledgeDocumentRow.actor_id == context.actor_id,
+            )
+            .order_by(ChatAttachmentRow.created_at, ChatAttachmentRow.id)
+        )
+        async with self._sessions() as session:
+            rows = (await session.execute(statement)).all()
+        return [self._attachment(attachment, document) for attachment, document in rows]
+
+    async def get_memory(
+        self,
+        context: ExecutionContext,
+        conversation_id: UUID,
+    ) -> ConversationMemory | None:
+        """Read memory only when tenant, actor, and parent conversation all match."""
+        statement = (
+            select(ConversationMemoryRow)
+            .join(ConversationRow, ConversationRow.id == ConversationMemoryRow.conversation_id)
+            .where(
+                ConversationMemoryRow.conversation_id == conversation_id,
+                ConversationMemoryRow.organization_id == context.organization_id,
+                ConversationMemoryRow.actor_id == context.actor_id,
+                ConversationRow.organization_id == context.organization_id,
+                ConversationRow.actor_id == context.actor_id,
+            )
+        )
+        async with self._sessions() as session:
+            row = await session.scalar(statement)
+        return self._memory(row) if row else None
+
+    async def save_memory(
+        self,
+        context: ExecutionContext,
+        conversation_id: UUID,
+        summary: str,
+        summarized_message_count: int,
+    ) -> ConversationMemory:
+        """Upsert a rolling summary after rechecking parent ownership under lock."""
+        async with session_scope(self._sessions) as session:
+            conversation = await session.scalar(
+                select(ConversationRow)
+                .where(
+                    ConversationRow.id == conversation_id,
+                    ConversationRow.organization_id == context.organization_id,
+                    ConversationRow.actor_id == context.actor_id,
+                )
+                .with_for_update()
+            )
+            if conversation is None:
+                msg = "Conversation memory scope denied."
+                raise PermissionError(msg)
+            row = await session.get(ConversationMemoryRow, conversation_id)
+            if row is None:
+                row = ConversationMemoryRow(
+                    conversation_id=conversation_id,
+                    organization_id=context.organization_id,
+                    actor_id=context.actor_id,
+                    summary=summary,
+                    summarized_message_count=summarized_message_count,
+                )
+                session.add(row)
+            else:
+                row.summary = summary
+                row.summarized_message_count = summarized_message_count
+                row.updated_at = datetime.now(UTC)
+            await session.flush()
+            await session.refresh(row)
+        return self._memory(row)
 
     async def create_run(self, conversation_id: UUID, user_message_id: UUID) -> AgentRun:
         """Create a queued agent run for one immutable user message."""
@@ -239,6 +363,30 @@ class SqlAlchemyChatRepository:
             role=MessageRole(row.role),
             content=row.content,
             created_at=row.created_at,
+        )
+
+    @staticmethod
+    def _attachment(
+        row: ChatAttachmentRow, document: KnowledgeDocumentRow
+    ) -> ChatAttachment:
+        return ChatAttachment(
+            id=row.id,
+            conversation_id=row.conversation_id,
+            document_id=row.document_id,
+            name=document.name,
+            status=document.status,
+            domain=document.domain,
+            purpose=document.purpose,
+            created_at=row.created_at,
+        )
+
+    @staticmethod
+    def _memory(row: ConversationMemoryRow) -> ConversationMemory:
+        return ConversationMemory(
+            conversation_id=row.conversation_id,
+            summary=row.summary,
+            summarized_message_count=row.summarized_message_count,
+            updated_at=row.updated_at,
         )
 
     @staticmethod

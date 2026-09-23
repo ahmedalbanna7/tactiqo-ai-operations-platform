@@ -1,0 +1,145 @@
+rule_files:
+  - alerts.yml
+
+evaluation_interval: 1m
+
+tests:
+  - name: worker scrape outage fires only after its hold duration
+    interval: 1m
+    input_series:
+      - series: 'up{job="tactiqo-worker"}'
+        values: '0+0x3'
+    alert_rule_test:
+      - eval_time: 0m
+        alertname: TactiqoWorkerScrapeUnavailable
+        exp_alerts: []
+      - eval_time: 2m
+        alertname: TactiqoWorkerScrapeUnavailable
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              component: worker
+              job: tactiqo-worker
+            exp_annotations:
+              summary: Tactiqo worker metrics target is unavailable
+              description: Prometheus has failed to scrape the authenticated worker metrics endpoint for at least one minute.
+
+  - name: a queue snapshot only becomes stale after the age threshold and hold
+    interval: 1m
+    start_timestamp: 1000
+    input_series:
+      - series: tactiqo_ingestion_queue_depth_observed_at_seconds
+        values: '1000+0x6'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: TactiqoIngestionQueueSnapshotStale
+        exp_alerts: []
+      - eval_time: 4m
+        alertname: TactiqoIngestionQueueSnapshotStale
+        exp_alerts:
+          - exp_labels:
+              severity: info
+              component: ingestion
+            exp_annotations:
+              summary: The last ingestion queue snapshot is stale
+              description: The API only samples ready depth during publishing; this signal is not a continuously refreshed broker measurement.
+
+  - name: a fresh high queue snapshot triggers the provisional backlog signal
+    interval: 1m
+    start_timestamp: 1000
+    input_series:
+      - series: tactiqo_ingestion_queue_ready_messages
+        values: '51+0x3'
+      - series: tactiqo_ingestion_queue_depth_observed_at_seconds
+        values: '1000+0x3'
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: TactiqoIngestionQueueDepthHigh
+        exp_alerts:
+          - exp_labels:
+              severity: info
+              component: ingestion
+            exp_annotations:
+              summary: A fresh ingestion queue sample is above the local investigation threshold
+              description: This is a point-in-time ready-message sample, not an authoritative or continuously refreshed queue depth.
+
+  - name: worker failures above threshold require the minimum delivery count
+    interval: 1m
+    input_series:
+      - series: 'tactiqo_worker_deliveries_total{outcome="failed"}'
+        values: '0+1x6'
+      - series: 'tactiqo_worker_deliveries_total{outcome="processed"}'
+        values: '0+1x6'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: TactiqoWorkerDeliveryFailureRatioHigh
+        exp_alerts: []
+      - eval_time: 6m
+        alertname: TactiqoWorkerDeliveryFailureRatioHigh
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              component: worker
+            exp_annotations:
+              summary: Tactiqo worker delivery failures are elevated
+              description: More than 20 percent of at least five observed deliveries failed over the recent window.
+
+  - name: api latency p95 alert needs sufficient observations
+    interval: 1m
+    input_series:
+      - series: 'tactiqo_http_request_duration_seconds_bucket{method="GET",route="/health/live",status_class="2xx",le="0.05"}'
+        values: '0+0x6'
+      - series: 'tactiqo_http_request_duration_seconds_bucket{method="GET",route="/health/live",status_class="2xx",le="0.1"}'
+        values: '0+0x6'
+      - series: 'tactiqo_http_request_duration_seconds_bucket{method="GET",route="/health/live",status_class="2xx",le="0.25"}'
+        values: '0+0x6'
+      - series: 'tactiqo_http_request_duration_seconds_bucket{method="GET",route="/health/live",status_class="2xx",le="0.5"}'
+        values: '0+0x6'
+      - series: 'tactiqo_http_request_duration_seconds_bucket{method="GET",route="/health/live",status_class="2xx",le="1"}'
+        values: '0+0x6'
+      - series: 'tactiqo_http_request_duration_seconds_bucket{method="GET",route="/health/live",status_class="2xx",le="2.5"}'
+        values: '0+0x6'
+      - series: 'tactiqo_http_request_duration_seconds_bucket{method="GET",route="/health/live",status_class="2xx",le="5"}'
+        values: '0+5x6'
+      - series: 'tactiqo_http_request_duration_seconds_bucket{method="GET",route="/health/live",status_class="2xx",le="10"}'
+        values: '0+5x6'
+      - series: 'tactiqo_http_request_duration_seconds_bucket{method="GET",route="/health/live",status_class="2xx",le="30"}'
+        values: '0+5x6'
+      - series: 'tactiqo_http_request_duration_seconds_bucket{method="GET",route="/health/live",status_class="2xx",le="+Inf"}'
+        values: '0+5x6'
+      - series: 'tactiqo_http_request_duration_seconds_count{method="GET",route="/health/live",status_class="2xx"}'
+        values: '0+5x6'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: TactiqoApiRequestLatencyP95High
+        exp_alerts: []
+      - eval_time: 6m
+        alertname: TactiqoApiRequestLatencyP95High
+        exp_alerts:
+          - exp_labels:
+              severity: info
+              component: api
+            exp_annotations:
+              summary: Tactiqo API request latency p95 is elevated
+              description: The provisional local trigger is above 2.5 seconds with at least 20 observations in five minutes; calibrate under representative load.
+
+  - name: api server error ratio alert needs sufficient requests
+    interval: 1m
+    input_series:
+      - series: 'tactiqo_http_requests_total{method="GET",route="/health/live",status_class="5xx"}'
+        values: '0+5x6'
+      - series: 'tactiqo_http_requests_total{method="GET",route="/health/live",status_class="2xx"}'
+        values: '0+5x6'
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: TactiqoApiHighServerErrorRatio
+        exp_alerts: []
+      - eval_time: 6m
+        alertname: TactiqoApiHighServerErrorRatio
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              component: api
+            exp_annotations:
+              summary: Tactiqo API server error ratio is elevated
+              description: More than 5 percent of at least 20 requests were 5xx responses over the recent window.
