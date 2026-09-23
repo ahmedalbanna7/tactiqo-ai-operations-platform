@@ -98,7 +98,7 @@ jobs:
         run: python scripts/check_dependency_licenses.py sbom.spdx.json
 
       - name: Upload SBOM evidence
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: tactiqo-spdx-sbom
           path: sbom.spdx.json
