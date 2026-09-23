@@ -36,7 +36,7 @@ dependencies = [
 infrastructure = [
   "aio-pika==10.0.1",
   "asyncpg==0.30.0",
-  "redis==8.0.1",
+  "redis==8.1.0",
   "sqlalchemy[asyncio]==2.0.51",
 ]
 documents = [
