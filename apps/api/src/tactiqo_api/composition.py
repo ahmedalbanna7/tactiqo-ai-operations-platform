@@ -37,6 +37,7 @@ from tactiqo.agents.infrastructure.model_providers import (
     OpenAIResponsesProvider,
 )
 from tactiqo.ai.application.bank import AIBank
+from tactiqo.ai.infrastructure.bedrock import BedrockAdapter
 from tactiqo.ai.infrastructure.claude import ClaudeAdapter
 from tactiqo.ai.infrastructure.lm_studio import LMStudioAdapter
 from tactiqo.ai.infrastructure.openai_compatible import OpenAICompatibleAdapter
@@ -106,6 +107,7 @@ from tactiqo.knowledge.application.telemetry import (
     RetrievalMetrics,
 )
 from tactiqo.knowledge.infrastructure.object_storage import MinioObjectStorage
+from tactiqo.knowledge.infrastructure.s3_object_storage import S3ObjectStorage
 from tactiqo.knowledge.infrastructure.queue import RabbitMqIngestionPublisher
 from tactiqo.knowledge.infrastructure.repositories import SqlAlchemyKnowledgeRepository
 from tactiqo.knowledge.infrastructure.search import (
@@ -376,6 +378,9 @@ def build_lifespan(settings: Settings) -> Lifespan:  # noqa: C901, PLR0915
         ai_secret_store = None
         llm_adapters: dict[str, LLMAdapter] = {"lm_studio": lm_studio}
         embedding_adapters: dict[str, EmbeddingAdapter] = {"lm_studio": lm_studio}
+        bedrock = BedrockAdapter(settings.aws_region)
+        llm_adapters["bedrock"] = bedrock
+        embedding_adapters["bedrock"] = bedrock
         if settings.credential_encryption_key is not None:
             ai_secret_store = SqlEncryptedAISecretStore(
                 sessions,
@@ -542,13 +547,23 @@ def build_lifespan(settings: Settings) -> Lifespan:  # noqa: C901, PLR0915
         app.state.job_service = job_service
         object_storage_metrics = ObjectStorageMetrics()
         app.state.object_storage_metrics = object_storage_metrics
-        object_storage = MinioObjectStorage(
-            settings.minio_endpoint,
-            settings.minio_access_key.get_secret_value(),
-            settings.minio_secret_key.get_secret_value(),
-            settings.minio_bucket,
-            object_storage_metrics,
-        )
+        if settings.storage_backend == "s3":
+            bucket = settings.s3_bucket_name
+            if bucket is None:
+                raise RuntimeError("Validated S3 bucket name disappeared during composition.")
+            object_storage = S3ObjectStorage(
+                settings.aws_region,
+                bucket,
+                object_storage_metrics,
+            )
+        else:
+            object_storage = MinioObjectStorage(
+                settings.minio_endpoint,
+                settings.minio_access_key.get_secret_value(),
+                settings.minio_secret_key.get_secret_value(),
+                settings.minio_bucket,
+                object_storage_metrics,
+            )
         artifact_repository = SqlArtifactRepository(sessions)
         artifact_service = ArtifactService(
             artifact_repository,

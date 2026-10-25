@@ -23,11 +23,14 @@ COPY apps/api/src ./apps/api/src
 COPY apps/worker/src ./apps/worker/src
 COPY apps/mcp_demo/src ./apps/mcp_demo/src
 COPY scripts/init_metrics_auth.py ./scripts/init_metrics_auth.py
+COPY scripts/runtime_entrypoint.py ./scripts/runtime_entrypoint.py
 
 RUN uv sync --frozen --no-group quality --no-group test \
         --extra infrastructure --extra documents --no-editable \
     && /usr/local/bin/python -m pip uninstall --yes uv
 
 USER tactiqo
+
+ENTRYPOINT ["python", "scripts/runtime_entrypoint.py"]
 
 CMD ["python", "-m", "tactiqo_worker.main"]

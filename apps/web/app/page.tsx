@@ -272,7 +272,7 @@ export default function HomePage() {
 
   useEffect(() => {
     void Promise.all([refreshConversations(), refreshDocuments(), refreshConnections(), refreshSettings(), refreshJobs(), refreshArtifacts()]).catch(() => {
-      setNotice("تعذر الاتصال بالخادم. تأكد أن خدمات Tactiqo تعمل.");
+      setNotice("تعذر الاتصال بالخادم. تأكد أن خدمات NexaOps تعمل.");
     });
   }, [refreshArtifacts, refreshConnections, refreshConversations, refreshDocuments, refreshJobs, refreshSettings]);
 
@@ -622,7 +622,7 @@ export default function HomePage() {
       <aside className={`sidebar ${sidebarOpen ? "sidebar-open" : ""}`}>
         <div className="brand-row">
           <div className="brand-mark">T</div>
-          <div><strong>Tactiqo</strong><span>AI Operations</span></div>
+          <div><strong>NexaOps</strong><span>AI Operations</span></div>
           <button className="icon-button mobile-only" onClick={() => setSidebarOpen(false)} aria-label={copy(locale, "إغلاق القائمة", "Close menu")}>×</button>
         </div>
         <button className="new-chat" onClick={newChat}><span>＋</span> {copy(locale, "محادثة جديدة", "New chat")}</button>
@@ -703,7 +703,7 @@ export default function HomePage() {
                 <article className="message assistant-message">
                   <span className="avatar agent">T</span>
                   <div className="message-body">
-              <strong className="message-name">Tactiqo</strong>
+              <strong className="message-name">NexaOps</strong>
                     {runPlan && busy && <div className="run-plan-preview" role="status"><strong>{runPlan.work_class === "fast" ? "مسار سريع" : runPlan.work_class === "background" ? "مهمة خلفية" : "خطة تنفيذ"}</strong><span>{runPlan.step_count} خطوة · {runPlan.agent_codes.map((code) => agents.find((item) => item.code === code)?.name ?? "وكيل مخوّل").join("، ")}</span></div>}
                     {streamedAnswer ? <p>{streamedAnswer}</p> : <Thinking label={stepLabel[runStep ?? "queued"]} />}
                     {citations.length > 0 && (
@@ -781,7 +781,7 @@ export default function HomePage() {
                   event.currentTarget.form?.requestSubmit();
                 }
               }}
-              placeholder={copy(locale, "اكتب رسالتك إلى Tactiqo…", "Message Tactiqo…")}
+              placeholder={copy(locale, "اكتب رسالتك إلى NexaOps…", "Message NexaOps…")}
               rows={1}
               disabled={busy}
               aria-label={copy(locale, "رسالتك", "Your message")}
@@ -1370,14 +1370,14 @@ function AISettings({ request, profiles, agents, refresh }: {
   refresh: () => Promise<void>;
 }) {
   const [kind, setKind] = useState<"llm" | "embedding">("llm");
-  const [provider, setProvider] = useState<"lm_studio" | "openai" | "claude">("lm_studio");
+  const [provider, setProvider] = useState<"lm_studio" | "openai" | "claude" | "bedrock">("bedrock");
   const [model, setModel] = useState("tactiqo-chat");
-  const [endpoint, setEndpoint] = useState("http://host.docker.internal:1234/v1");
+  const [endpoint, setEndpoint] = useState("https://bedrock-runtime.us-east-1.amazonaws.com");
   const [apiKey, setApiKey] = useState("");
   const [secretReference, setSecretReference] = useState<string | null>(null);
   const [models, setModels] = useState<string[]>([]);
   const [status, setStatus] = useState("جاهز للاختبار");
-  const [testText, setTestText] = useState("اكتب ردًا عربيًا قصيرًا يؤكد أن Tactiqo يعمل محليًا.");
+  const [testText, setTestText] = useState("اكتب ردًا عربيًا قصيرًا يؤكد أن NexaOps يعمل.");
   const [result, setResult] = useState("");
   const profileName = kind === "embedding"
     ? "multilingual_embedding_model"
@@ -1399,14 +1399,16 @@ function AISettings({ request, profiles, agents, refresh }: {
     if (active) {
       setModel(active.model);
       setEndpoint(active.endpoint);
-      setProvider(active.provider === "openai" || active.provider === "claude" ? active.provider : "lm_studio");
+      setProvider(active.provider === "openai" || active.provider === "claude" || active.provider === "bedrock" ? active.provider : "lm_studio");
       setSecretReference(active.has_secret_reference ? "configured" : null);
+    } else if (provider === "bedrock") {
+      setModel(kind === "llm" ? "amazon.nova-lite-v1:0" : "amazon.titan-embed-text-v2:0");
     }
     setModels([]);
-  }, [kind, profileName, profiles]);
+  }, [kind, profileName, profiles, provider]);
 
   const payload = () => ({ name: profileName, kind, provider, model, endpoint, secret_reference: secretReference === "configured" ? undefined : secretReference, timeout_seconds: 300, maximum_retries: 1, maximum_concurrency: 1, daily_unit_limit: 1000000, capabilities, routing_priority: provider === "lm_studio" ? 30 : 10 });
-  const changeProvider = (value: "lm_studio" | "openai" | "claude") => {
+  const changeProvider = (value: "lm_studio" | "openai" | "claude" | "bedrock") => {
     setProvider(value);
     setModels([]);
     setSecretReference(null);
@@ -1417,6 +1419,9 @@ function AISettings({ request, profiles, agents, refresh }: {
     } else if (value === "claude") {
       setEndpoint("https://api.anthropic.com/v1");
       setModel("claude-sonnet-4-5");
+    } else if (value === "bedrock") {
+      setEndpoint("https://bedrock-runtime.us-east-1.amazonaws.com");
+      setModel(kind === "llm" ? "amazon.nova-lite-v1:0" : "amazon.titan-embed-text-v2:0");
     } else {
       setEndpoint("http://host.docker.internal:1234/v1");
       setModel(kind === "llm" ? "qwen3-vl-8b-instruct" : "text-embedding-nomic-embed-text-v1.5");
@@ -1433,7 +1438,7 @@ function AISettings({ request, profiles, agents, refresh }: {
     } catch { setStatus("تعذر حفظ المفتاح الآمن."); }
   };
   const discover = async () => {
-    setStatus(`جاري الاتصال بـ ${provider === "claude" ? "Claude" : provider === "openai" ? "OpenAI" : "LM Studio"}…`);
+    setStatus(`جاري الاتصال بـ ${provider === "bedrock" ? "Amazon Bedrock" : provider === "claude" ? "Claude" : provider === "openai" ? "OpenAI" : "LM Studio"}…`);
     try {
       const health = await request<AIHealth>("/api/v1/ai/profiles/test", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload()) });
       setModels(health.models); setStatus(health.healthy ? `متصل خلال ${health.latency_ms}ms — اختر الموديل` : `غير متصل: ${health.error_code}`);
@@ -1471,16 +1476,17 @@ function AISettings({ request, profiles, agents, refresh }: {
   return <div className="ai-settings">
     <div className="settings-tabs"><button className={kind === "llm" ? "active" : ""} onClick={() => setKind("llm")}>LLM Bank</button><button className={kind === "embedding" ? "active" : ""} onClick={() => setKind("embedding")}>Embedding Bank</button></div>
     <div className="cloud-slot-grid">
+      <button className={provider === "bedrock" ? "cloud-slot active" : "cloud-slot"} onClick={() => changeProvider("bedrock")}><strong>Amazon Bedrock</strong><span>LLM وEmbeddings عبر AWS IAM</span><small>{profiles.some((item) => item.provider === "bedrock" && item.status === "enabled") ? "مفعّل" : "غير مضاف"}</small></button>
       <button className={provider === "openai" ? "cloud-slot active" : "cloud-slot"} onClick={() => changeProvider("openai")}><strong>OpenAI API</strong><span>مفضل للعروض والمخرجات المرئية</span><small>{profiles.some((item) => item.provider === "openai" && item.status === "enabled") ? "مفعّل" : "غير مضاف"}</small></button>
       <button className={provider === "claude" ? "cloud-slot active" : "cloud-slot"} onClick={() => changeProvider("claude")}><strong>Claude API</strong><span>مفضل لتحليل الملفات والتقارير</span><small>{profiles.some((item) => item.provider === "claude" && item.status === "enabled") ? "مفعّل" : "غير مضاف"}</small></button>
       <button className="cloud-slot provider-planned" type="button" disabled aria-describedby="gamma-provider-note"><strong>Gamma API</strong><span>مخطط: إنشاء عروض تقديمية مرئية</span><small>غير مفعّل — لا يتم إرسال أي بيانات</small></button>
     </div>
     <p className="settings-note" id="gamma-provider-note">Gamma معروض كموفّر مستقبلي فقط. لا يوجد اتصال API أو إرسال بيانات أو تفعيل توجيه حتى اعتماد واجهته وتخزين أسراره وصلاحياته.</p>
-    <div className="provider-status"><i /> <strong>{provider === "lm_studio" ? "LM Studio محلي" : provider === "openai" ? "OpenAI Cloud" : "Claude Cloud"}</strong><span>{status}</span></div>
-    <label>المزوّد<select value={provider} onChange={(event) => changeProvider(event.target.value as "lm_studio" | "openai" | "claude")} dir="ltr"><option value="lm_studio">LM Studio (Local)</option><option value="openai">OpenAI</option><option value="claude">Claude (Anthropic)</option></select></label>
-    {provider !== "lm_studio" && <><label>{provider === "claude" ? "Claude API key" : "OpenAI API key"}<input type="password" value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder={provider === "claude" ? "sk-ant-…" : "sk-…"} dir="ltr" autoComplete="new-password" /></label><button className="settings-action secondary" onClick={() => void saveCredential()} disabled={!apiKey.trim()}>حفظ المفتاح بأمان</button><p className="settings-note">لكل مزود مفتاح write-only مستقل ومشفّر؛ لا يعود إلى المتصفح بعد الحفظ.</p></>}
+    <div className="provider-status"><i /> <strong>{provider === "bedrock" ? "Amazon Bedrock" : provider === "lm_studio" ? "LM Studio محلي" : provider === "openai" ? "OpenAI Cloud" : "Claude Cloud"}</strong><span>{status}</span></div>
+    <label>المزوّد<select value={provider} onChange={(event) => changeProvider(event.target.value as "lm_studio" | "openai" | "claude" | "bedrock")} dir="ltr"><option value="bedrock">Amazon Bedrock (AWS)</option><option value="lm_studio">LM Studio (Local)</option><option value="openai">OpenAI</option><option value="claude">Claude (Anthropic)</option></select></label>
+    {(provider === "openai" || provider === "claude") && <><label>{provider === "claude" ? "Claude API key" : "OpenAI API key"}<input type="password" value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder={provider === "claude" ? "sk-ant-…" : "sk-…"} dir="ltr" autoComplete="new-password" /></label><button className="settings-action secondary" onClick={() => void saveCredential()} disabled={!apiKey.trim()}>حفظ المفتاح بأمان</button><p className="settings-note">لكل مزود مفتاح write-only مستقل ومشفّر؛ لا يعود إلى المتصفح بعد الحفظ.</p></>}
     <label>Endpoint<input value={endpoint} onChange={(event) => setEndpoint(event.target.value)} dir="ltr" disabled={provider !== "lm_studio"} /></label>
-    <p className="settings-note">المحلي هو الافتراضي الآن. بعد حفظ مفتاح OpenAI أو Claude وتفعيل موديله، يصبح السحابي أولوية للشات والـPlanner والوكلاء حسب المهمة؛ وعند غيابه أو فشله يعود للمحلي. السحابي مقيد افتراضيًا ببيانات public/internal؛ confidential/restricted تبقى محلية. التغيير يسري على الطلب التالي.</p>
+    <p className="settings-note">Bedrock يستخدم صلاحية IAM الخاصة بخدمة AWS ولا يحتاج إلى API key. في بيئة DEV، يوجّه النظام إلى AWS؛ تبقى بيانات confidential وrestricted محكومة بتصنيف المؤسسة وسياسة المزوّد.</p>
     <button className="settings-action secondary" onClick={() => void discover()}>اكتشاف الموديلات واختبار الاتصال</button>
     <label>الموديل<select value={model} onChange={(event) => { setModel(event.target.value); setStatus(`تم اختيار ${event.target.value} — اضغط حفظ وتفعيل`); }} dir="ltr"><option value={model}>{model}</option>{models.filter((item) => item !== model).map((item) => <option key={item}>{item}</option>)}</select></label>
     <button className="settings-action" onClick={() => void activate()}>حفظ وتفعيل {kind === "llm" ? "LLM" : "Embedding"}</button>
@@ -1643,7 +1649,7 @@ function ChatMessage({ message }: { message: Message }) {
     <article className={`message ${assistant ? "assistant-message" : "user-message"}`}>
       <span className={`avatar ${assistant ? "agent" : "user"}`}>{assistant ? "T" : "أ"}</span>
       <div className="message-body">
-        <strong className="message-name">{assistant ? "Tactiqo" : "أنت"}</strong>
+        <strong className="message-name">{assistant ? "NexaOps" : "أنت"}</strong>
         <p>{visibleContent}</p>
         {artifactMatch && (
           <div className="chat-artifact">

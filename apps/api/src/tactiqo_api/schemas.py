@@ -402,7 +402,7 @@ class AIProfileRequest(StrictSchema):
         "multilingual_embedding_model",
     ]
     kind: Literal["llm", "embedding"]
-    provider: Literal["lm_studio", "openai", "claude"] = "lm_studio"
+    provider: Literal["lm_studio", "openai", "claude", "bedrock"] = "lm_studio"
     model: str = Field(min_length=1, max_length=256)
     endpoint: str = Field(
         default="http://host.docker.internal:1234/v1", min_length=10, max_length=512

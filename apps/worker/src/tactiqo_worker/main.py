@@ -11,6 +11,7 @@ import uvicorn
 
 from tactiqo.ai.application.bank import AIBank
 from tactiqo.ai.application.ports import EmbeddingAdapter, LLMAdapter  # noqa: TC001
+from tactiqo.ai.infrastructure.bedrock import BedrockAdapter
 from tactiqo.ai.infrastructure.lm_studio import LMStudioAdapter
 from tactiqo.ai.infrastructure.openai_compatible import OpenAICompatibleAdapter
 from tactiqo.ai.infrastructure.repository import SqlAIProfileRepository
@@ -21,6 +22,7 @@ from tactiqo.integrations.infrastructure.crypto import FernetCredentialCipher
 from tactiqo.knowledge.application.telemetry import ObjectStorageMetrics
 from tactiqo.knowledge.infrastructure.indexer import PgVectorKnowledgeIndexer
 from tactiqo.knowledge.infrastructure.object_storage import MinioObjectStorage
+from tactiqo.knowledge.infrastructure.s3_object_storage import S3ObjectStorage
 from tactiqo.knowledge.infrastructure.queue import declare_ingestion_topology
 from tactiqo.knowledge.infrastructure.repositories import SqlAlchemyKnowledgeRepository
 from tactiqo.shared.domain.execution import ExecutionContext
@@ -48,18 +50,32 @@ class IngestionWorker:
         sessions = create_session_factory(self._engine)
         self._repository = SqlAlchemyKnowledgeRepository(sessions)
         self._context_resolver = SqlExecutionContextResolver(sessions)
-        self._storage = MinioObjectStorage(
-            endpoint=settings.minio_endpoint,
-            access_key=settings.minio_access_key.get_secret_value(),
-            secret_key=settings.minio_secret_key.get_secret_value(),
-            bucket=settings.minio_bucket,
-            metrics=self._storage_metrics,
-            event_logger=configure_storage_telemetry_logger(),
-        )
+        if settings.storage_backend == "s3":
+            bucket = settings.s3_bucket_name
+            if bucket is None:
+                raise RuntimeError("Validated S3 bucket name disappeared during composition.")
+            self._storage = S3ObjectStorage(
+                settings.aws_region,
+                bucket,
+                metrics=self._storage_metrics,
+                event_logger=configure_storage_telemetry_logger(),
+            )
+        else:
+            self._storage = MinioObjectStorage(
+                endpoint=settings.minio_endpoint,
+                access_key=settings.minio_access_key.get_secret_value(),
+                secret_key=settings.minio_secret_key.get_secret_value(),
+                bucket=settings.minio_bucket,
+                metrics=self._storage_metrics,
+                event_logger=configure_storage_telemetry_logger(),
+            )
         self._parser = UnstructuredDocumentParser()
         lm_studio = LMStudioAdapter()
+        bedrock = BedrockAdapter(settings.aws_region)
         llm_adapters: dict[str, LLMAdapter] = {"lm_studio": lm_studio}
         embedding_adapters: dict[str, EmbeddingAdapter] = {"lm_studio": lm_studio}
+        llm_adapters["bedrock"] = bedrock
+        embedding_adapters["bedrock"] = bedrock
         if settings.credential_encryption_key is not None:
             secrets = SqlEncryptedAISecretStore(
                 sessions,

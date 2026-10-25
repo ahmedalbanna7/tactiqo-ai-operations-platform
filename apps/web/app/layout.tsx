@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import "./styles.css";
 
 export const metadata: Metadata = {
-  title: "Tactiqo — AI Operations",
+  title: "NexaOps — AI Operations",
   description: "مساعد عمليات مؤسسي مدعوم بالمعرفة والأدوات والموافقات البشرية.",
 };
 

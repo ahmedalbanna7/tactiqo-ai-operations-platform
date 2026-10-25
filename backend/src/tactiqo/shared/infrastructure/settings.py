@@ -59,9 +59,12 @@ class Settings(BaseSettings):
     checkpoint_database_url: SecretStr | None = None
     redis_url: SecretStr
     rabbitmq_url: SecretStr
-    minio_endpoint: str
-    minio_access_key: SecretStr
-    minio_secret_key: SecretStr
+    storage_backend: Literal["minio", "s3"] = "minio"
+    aws_region: str = "us-east-1"
+    s3_bucket_name: str | None = None
+    minio_endpoint: str = "http://minio:9000"
+    minio_access_key: SecretStr = SecretStr("")
+    minio_secret_key: SecretStr = SecretStr("")
     minio_bucket: str = "tactiqo-knowledge"
 
     model_provider: ModelProviderName = ModelProviderName.DETERMINISTIC
@@ -179,6 +182,18 @@ class Settings(BaseSettings):
         )
         if self.integration_connections_enabled and not encryption_key:
             message = "Credential encryption key is required for SaaS integrations."
+            raise ValueError(message)
+        if self.storage_backend == "s3" and not (self.s3_bucket_name or "").strip():
+            message = "S3 bucket name is required when the S3 storage backend is enabled."
+            raise ValueError(message)
+        if self.storage_backend == "minio" and not all(
+            (
+                self.minio_endpoint.strip(),
+                self.minio_access_key.get_secret_value().strip(),
+                self.minio_secret_key.get_secret_value().strip(),
+            )
+        ):
+            message = "MinIO endpoint and credentials are required when MinIO is enabled."
             raise ValueError(message)
         if (
             self.environment

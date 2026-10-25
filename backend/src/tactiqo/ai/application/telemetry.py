@@ -3,7 +3,7 @@
 import math
 from threading import Lock
 
-_PROVIDERS = frozenset({"lm_studio", "openai", "claude"})
+_PROVIDERS = frozenset({"lm_studio", "openai", "claude", "bedrock"})
 _OPERATIONS = frozenset({"llm_plan", "llm_answer", "embedding"})
 _OUTCOMES = frozenset({"success", "failure"})
 _HISTOGRAM_BUCKETS = (0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0)

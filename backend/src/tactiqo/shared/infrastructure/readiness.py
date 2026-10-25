@@ -1,9 +1,13 @@
 """Infrastructure readiness adapters for the approved local core."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Any
 
 import aio_pika
+import anyio
+import boto3
 import httpx
+from botocore.config import Config
 from redis.asyncio import Redis
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
@@ -81,3 +85,36 @@ class MinIOProbe:
         async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
             response = await client.get(health_url)
             response.raise_for_status()
+
+
+@dataclass(frozen=True, slots=True)
+class S3Probe:
+    """Check task-role access to the configured S3 bucket."""
+
+    region: str
+    bucket: str
+    timeout_seconds: float
+    name: str = "s3"
+    _client: Any = field(init=False, repr=False, compare=False)
+
+    def __post_init__(self) -> None:
+        """Reuse one bounded client for repeated health checks."""
+        object.__setattr__(
+            self,
+            "_client",
+            boto3.client(
+                "s3",
+                region_name=self.region,
+                config=Config(
+                    connect_timeout=self.timeout_seconds,
+                    read_timeout=self.timeout_seconds,
+                    retries={"max_attempts": 2, "mode": "standard"},
+                ),
+            ),
+        )
+
+    async def check(self) -> None:
+        """Verify bucket access without reading object contents."""
+        await anyio.to_thread.run_sync(
+            lambda: self._client.head_bucket(Bucket=self.bucket)
+        )

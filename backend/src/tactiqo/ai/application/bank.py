@@ -1,6 +1,7 @@
 """Policy-aware LLM and embedding routing with bounded failure handling."""
 
 import asyncio
+import re
 from collections import defaultdict
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import replace
@@ -33,6 +34,9 @@ T = TypeVar("T")
 MAX_EMBEDDING_BATCH = 64
 MAX_EMBEDDING_TEXT = 16_000
 LM_STUDIO_PORT = 1234
+BEDROCK_ENDPOINT = re.compile(
+    r"^https://bedrock-runtime\.[a-z]{2}(?:-gov)?-[a-z]+-[0-9]+\.amazonaws\.com$"
+)
 
 
 class AIBank:
@@ -165,7 +169,7 @@ class AIBank:
     ) -> ProviderHealth:
         """Validate and atomically activate a candidate profile."""
         self._require_admin(context)
-        if profile.provider != "lm_studio" and not profile.secret_reference:
+        if profile.provider not in {"lm_studio", "bedrock"} and not profile.secret_reference:
             current = next(
                 (
                     item
@@ -313,6 +317,14 @@ class AIBank:
     @staticmethod
     def _safe_endpoint(profile: ProviderProfile) -> bool:
         parsed = urlparse(profile.endpoint)
+        if profile.provider == "bedrock":
+            return bool(
+                BEDROCK_ENDPOINT.fullmatch(profile.endpoint)
+                and parsed.port is None
+                and parsed.path in {"", "/"}
+                and parsed.query == ""
+                and parsed.fragment == ""
+            )
         if profile.provider == "openai":
             return (
                 parsed.scheme == "https"

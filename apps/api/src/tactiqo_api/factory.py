@@ -11,6 +11,7 @@ from tactiqo.shared.infrastructure.readiness import (
     PostgreSQLProbe,
     RabbitMQProbe,
     RedisProbe,
+    S3Probe,
 )
 from tactiqo.shared.infrastructure.settings import Settings
 from tactiqo_api.composition import build_lifespan
@@ -34,6 +35,21 @@ def build_default_probes(settings: Settings) -> tuple[ReadinessProbe, ...]:
 
     """
     timeout = settings.readiness_timeout_seconds
+    storage_probe: ReadinessProbe
+    if settings.storage_backend == "s3":
+        bucket = settings.s3_bucket_name
+        if bucket is None:
+            raise RuntimeError("Validated S3 bucket name disappeared during probe composition.")
+        storage_probe = S3Probe(
+            region=settings.aws_region,
+            bucket=bucket,
+            timeout_seconds=timeout,
+        )
+    else:
+        storage_probe = MinIOProbe(
+            endpoint=settings.minio_endpoint,
+            timeout_seconds=timeout,
+        )
     return (
         PostgreSQLProbe(
             dsn=settings.database_url.get_secret_value(),
@@ -47,7 +63,7 @@ def build_default_probes(settings: Settings) -> tuple[ReadinessProbe, ...]:
             url=settings.rabbitmq_url.get_secret_value(),
             timeout_seconds=timeout,
         ),
-        MinIOProbe(endpoint=settings.minio_endpoint, timeout_seconds=timeout),
+        storage_probe,
     )
 
 
